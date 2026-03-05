@@ -517,6 +517,7 @@ let state = {id:genId(), items:[], suaIdx:-1, gcType:null};
 // INIT
 // ══════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  ensureTable().catch(()=>{});
   document.getElementById('txtNgayXuat').value = today();
   updateHeader(); renderItems(); setupAC(); setupDVAC();
   document.getElementById('txtSoLuong').addEventListener('keydown',e=>{if(e.key==='Enter')themLinhKien();});
@@ -803,22 +804,110 @@ function confirmGC(){
 }
 
 // ══════════════════════════════════════════════════════
-// LƯU / MỞ / MỚI
+// SUPABASE CONFIG
 // ══════════════════════════════════════════════════════
-function getAll(){try{return JSON.parse(localStorage.getItem('bmt_hd')||'[]');}catch{return[];}}
-function setAll(l){localStorage.setItem('bmt_hd',JSON.stringify(l));}
+const SB_URL = 'https://pqokrvyholzrjvvmfhjo.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxb2tydnlob2x6cmp2dm1maGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3MDAxNzIsImV4cCI6MjA4ODI3NjE3Mn0.3-M9yuNwT6Xc-yUFdyMxqmYx4eyt5J2jqDWGjRjq1tE';
 
-function luuHoaDon(){
-  if(!state.items.length){toast('error','Không có dữ liệu để lưu');return;}
-  const hd={id:state.id,donVi:document.getElementById('txtDonVi').value.trim(),
-    duAn:document.getElementById('txtDuAn').value.trim(),
-    ngay:document.getElementById('txtNgayXuat').value,
-    items:JSON.parse(JSON.stringify(state.items)),ts:new Date().toISOString()};
-  const list=getAll();const idx=list.findIndex(x=>x.id===hd.id);
-  if(idx>=0)list[idx]=hd;else list.unshift(hd);
-  setAll(list);toast('success',`Đã lưu [${hd.id}]`);
+async function sbFetch(path, opts={}) {
+  const res = await fetch(SB_URL + '/rest/v1/' + path, {
+    ...opts,
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || 'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
 }
-function newHoaDon(){
+
+// Ensure table exists (called once on load)
+async function ensureTable() {
+  try {
+    await sbFetch('hoadon?limit=1', { prefer: 'count=none' });
+  } catch(e) {
+    // Table might not exist – create via SQL API
+    await fetch(SB_URL + '/rest/v1/rpc/exec_sql', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: `
+        create table if not exists hoadon (
+          id text primary key,
+          don_vi text, du_an text, ngay_xuat text,
+          items jsonb, updated_at timestamptz default now()
+        );
+        alter table hoadon enable row level security;
+        create policy if not exists "pub_sel" on hoadon for select using (true);
+        create policy if not exists "pub_ins" on hoadon for insert with check (true);
+        create policy if not exists "pub_upd" on hoadon for update using (true);
+        create policy if not exists "pub_del" on hoadon for delete using (true);
+      ` })
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// LƯU / MỞ / MỚI  (Supabase + localStorage fallback)
+// ══════════════════════════════════════════════════════
+function getLocalAll(){try{return JSON.parse(localStorage.getItem('bmt_hd')||'[]');}catch{return[];}}
+function setLocalAll(l){localStorage.setItem('bmt_hd',JSON.stringify(l));}
+
+function setLoading(msg) {
+  let el = document.getElementById('sbLoading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sbLoading';
+    el.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:.82rem;color:var(--txt2);z-index:9998;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+    document.body.appendChild(el);
+  }
+  if (msg) { el.innerHTML = '⏳ ' + msg; el.style.display='flex'; }
+  else { el.style.display='none'; }
+}
+
+async function luuHoaDon() {
+  if(!state.items.length){toast('error','Không có dữ liệu để lưu');return;}
+  const hd = {
+    id: state.id,
+    don_vi: document.getElementById('txtDonVi').value.trim(),
+    du_an:  document.getElementById('txtDuAn').value.trim(),
+    ngay_xuat: document.getElementById('txtNgayXuat').value,
+    items: JSON.parse(JSON.stringify(state.items)),
+    updated_at: new Date().toISOString()
+  };
+  // Save local immediately
+  const local = getLocalAll();
+  const li = local.findIndex(x=>x.id===hd.id);
+  const localFmt = {id:hd.id,donVi:hd.don_vi,duAn:hd.du_an,ngay:hd.ngay_xuat,items:hd.items,ts:hd.updated_at};
+  if(li>=0) local[li]=localFmt; else local.unshift(localFmt);
+  setLocalAll(local);
+  // Save to Supabase
+  setLoading('Đang lưu lên cloud...');
+  try {
+    await sbFetch('hoadon?id=eq.' + hd.id, {
+      method: 'DELETE', prefer: 'return=minimal'
+    });
+    await sbFetch('hoadon', {
+      method: 'POST',
+      body: JSON.stringify(hd),
+      prefer: 'return=minimal'
+    });
+    setLoading(null);
+    toast('success', `☁️ Đã lưu cloud [${hd.id}]`);
+  } catch(e) {
+    setLoading(null);
+    toast('info', `💾 Lưu local (offline): [${hd.id}]`);
+    console.warn('Supabase error:', e);
+  }
+}
+
+function newHoaDon() {
   if(state.items.length&&!confirm('Tạo HĐ mới? Dữ liệu hiện tại sẽ mất.'))return;
   state.id=genId();state.items=[];
   document.getElementById('txtDonVi').value='';
@@ -826,37 +915,90 @@ function newHoaDon(){
   document.getElementById('txtNgayXuat').value=today();
   updateHeader();renderItems();toast('info','Hóa đơn mới');
 }
-function openDanhSach(){
-  const list=getAll();
-  const el=document.getElementById('dsList');
-  if(!list.length){el.innerHTML=`<div style="text-align:center;padding:32px;color:var(--txt3)">Chưa có hóa đơn nào</div>`;
-  } else {
-    el.innerHTML=list.map(hd=>{
-      const tot=hd.items.reduce((s,it)=>s+calcT(it),0);
-      return`<div class="hd-card" onclick="moHD('${hd.id}')">
-        <span class="hd-card-id">${hd.id}</span>
-        <div class="hd-card-body">
-          <div class="hd-card-main">${escH(hd.donVi||'(Chưa có đơn vị)')}</div>
-          <div class="hd-card-sub">${escH(hd.duAn||'—')} · ${fmtDate(hd.ngay)} · ${hd.items.length} mục</div>
-        </div>
-        <span class="hd-card-tien">${fmt(tot)}</span>
-        <button class="hd-card-del" onclick="delHD('${hd.id}',event)">🗑</button>
-      </div>`;
-    }).join('');
-  }
+
+async function openDanhSach() {
+  const el = document.getElementById('dsList');
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--txt2)">⏳ Đang tải...</div>';
   document.getElementById('modalDS').classList.add('show');
+  
+  let list = [];
+  try {
+    const rows = await sbFetch('hoadon?order=updated_at.desc&limit=100');
+    list = rows.map(r => ({
+      id: r.id, donVi: r.don_vi, duAn: r.du_an,
+      ngay: r.ngay_xuat, items: r.items, ts: r.updated_at
+    }));
+    // Merge with local (local-only items not on cloud)
+    const local = getLocalAll();
+    local.forEach(lhd => { if(!list.find(x=>x.id===lhd.id)) list.push(lhd); });
+  } catch(e) {
+    console.warn('Supabase offline, using local');
+    list = getLocalAll();
+  }
+
+  if(!list.length) {
+    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--txt3)">Chưa có hóa đơn nào</div>';
+    return;
+  }
+  el.innerHTML = list.map(hd => {
+    const tot = hd.items ? hd.items.reduce((s,it)=>s+calcT(it),0) : 0;
+    const isCloud = '☁️';
+    return `<div class="hd-card" onclick="moHD('${hd.id}')">
+      <span class="hd-card-id">${hd.id}</span>
+      <div class="hd-card-body">
+        <div class="hd-card-main">${escH(hd.donVi||'(Chưa có đơn vị)')}</div>
+        <div class="hd-card-sub">${escH(hd.duAn||'—')} · ${fmtDate(hd.ngay)} · ${(hd.items||[]).length} mục ${isCloud}</div>
+      </div>
+      <span class="hd-card-tien">${fmt(tot)}</span>
+      <button class="hd-card-del" onclick="delHD('${hd.id}',event)">🗑</button>
+    </div>`;
+  }).join('');
 }
-function moHD(id){
-  const hd=getAll().find(x=>x.id===id);if(!hd)return;
-  state.id=hd.id;state.items=JSON.parse(JSON.stringify(hd.items));
-  document.getElementById('txtDonVi').value=hd.donVi||'';
-  document.getElementById('txtDuAn').value=hd.duAn||'';
-  document.getElementById('txtNgayXuat').value=hd.ngay||today();
-  updateHeader();renderItems();closeModal('modalDS');toast('info',`Đã mở [${hd.id}]`);
+
+function moHD(id) {
+  // Try from already-loaded list in DOM
+  const local = getLocalAll();
+  let hd = local.find(x=>x.id===id);
+  // If not local, fetch from Supabase async
+  if (!hd) {
+    setLoading('Đang tải hóa đơn...');
+    sbFetch('hoadon?id=eq.' + id).then(rows => {
+      setLoading(null);
+      if (!rows.length) { toast('error', 'Không tìm thấy HĐ'); return; }
+      const r = rows[0];
+      _loadHD({id:r.id,donVi:r.don_vi,duAn:r.du_an,ngay:r.ngay_xuat,items:r.items});
+    }).catch(() => { setLoading(null); toast('error','Không thể tải HĐ'); });
+    closeModal('modalDS');
+    return;
+  }
+  _loadHD(hd);
+  closeModal('modalDS');
 }
-function delHD(id,e){
-  e.stopPropagation();if(!confirm(`Xóa HĐ [${id}]?`))return;
-  setAll(getAll().filter(x=>x.id!==id));openDanhSach();toast('success','Đã xóa');
+
+function _loadHD(hd) {
+  state.id = hd.id;
+  state.items = JSON.parse(JSON.stringify(hd.items || []));
+  document.getElementById('txtDonVi').value = hd.donVi || '';
+  document.getElementById('txtDuAn').value  = hd.duAn  || '';
+  document.getElementById('txtNgayXuat').value = hd.ngay || today();
+  updateHeader(); renderItems();
+  closeModal('modalDS');
+  toast('info', `Đã mở [${hd.id}]`);
+}
+
+async function delHD(id, e) {
+  e.stopPropagation();
+  if(!confirm(`Xóa HĐ [${id}]?`)) return;
+  // Delete local
+  setLocalAll(getLocalAll().filter(x=>x.id!==id));
+  // Delete Supabase
+  try {
+    await sbFetch('hoadon?id=eq.' + id, { method:'DELETE', prefer:'return=minimal' });
+    toast('success','Đã xóa ☁️');
+  } catch {
+    toast('info','Đã xóa local');
+  }
+  openDanhSach();
 }
 
 // ══════════════════════════════════════════════════════
