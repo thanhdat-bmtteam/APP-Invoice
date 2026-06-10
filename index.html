@@ -315,6 +315,18 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
 .btn-hd-inactive{background:var(--s2)!important;color:var(--txt2)!important}
 .ban-mode #lblTong{color:var(--warn)!important}
 .ban-mode .item-thanh{color:var(--warn)!important}
+
+.dvt-tag{font-size:.7rem;background:var(--s2);color:var(--txt2);padding:1px 5px;border-radius:4px;font-weight:600;margin-right:4px;}
+
+/* ── HĐ LIST LOẠI G/B ── */
+.hd-group{border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:4px}
+.hd-group:last-child{border-bottom:none;margin-bottom:0}
+.hd-card-id-wrap{display:flex;align-items:center;gap:5px;min-width:80px}
+.hd-loai-g{background:#0077b6;color:#fff;font-size:.65rem;font-weight:800;padding:2px 5px;border-radius:4px;letter-spacing:.04em}
+.hd-loai-b{background:#e55039;color:#fff;font-size:.65rem;font-weight:800;padding:2px 5px;border-radius:4px;letter-spacing:.04em}
+
+/* ── DS TAB ── */
+#dsTabG,#dsTabB{transition:background .15s,color .15s}
 </style>
 </head>
 <body>
@@ -507,6 +519,21 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
     <div class="hd-type-switch">
       <button id="btnHDGoc" class="btn btn-sm btn-hd-active" onclick="setLoaiHD('goc')">📋 HĐ Gốc</button>
       <button id="btnHDBan" class="btn btn-sm btn-hd-inactive" onclick="setLoaiHD('ban')">🏷️ HĐ Bán</button>
+      <button class="btn btn-sm btn-hd-inactive" onclick="toggleMarkupSettings()" title="Cài đặt % tăng giá">⚙️</button>
+    </div>
+    <div id="markupSettings" style="display:none;position:fixed;bottom:68px;left:8px;background:var(--s1);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;z-index:200;min-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.4)">
+      <div style="font-size:.78rem;font-weight:700;color:var(--txt2);margin-bottom:8px">⚙️ Cài đặt % tăng giá (HĐ Bán)</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <label style="font-size:.8rem;color:var(--txt2);min-width:90px">Linh kiện:</label>
+        <input id="pctLK" type="number" min="0" max="999" value="15" style="width:64px;background:var(--s2);border:1.5px solid var(--border);border-radius:6px;color:var(--txt);padding:4px 6px;font-size:.85rem;text-align:center" oninput="saveMarkup()">
+        <span style="font-size:.8rem;color:var(--txt3)">%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:.8rem;color:var(--txt2);min-width:90px">Gia công:</label>
+        <input id="pctGC" type="number" min="0" max="999" value="40" style="width:64px;background:var(--s2);border:1.5px solid var(--border);border-radius:6px;color:var(--txt);padding:4px 6px;font-size:.85rem;text-align:center" oninput="saveMarkup()">
+        <span style="font-size:.8rem;color:var(--txt3)">%</span>
+      </div>
+      <div style="font-size:.7rem;color:var(--txt3);margin-top:8px">Tự động lưu · Linh kiện làm tròn 1.000đ</div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="luuHoaDon()">💾 Lưu</button>
     <button class="btn btn-green btn-sm"  onclick="xuatExcel()">📊 Excel</button>
@@ -551,7 +578,18 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">📋 Hóa đơn đã lưu</div>
-    <div id="dsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:55vh;overflow-y:auto"></div>
+    <!-- Tab switch G / B -->
+    <div style="display:flex;gap:0;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1.5px solid var(--border)">
+      <button id="dsTabG" onclick="switchDSTab('goc')"
+        style="flex:1;padding:8px;font-size:.82rem;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:#fff;border-right:1px solid var(--border)">
+        📋 HĐ Gốc
+      </button>
+      <button id="dsTabB" onclick="switchDSTab('ban')"
+        style="flex:1;padding:8px;font-size:.82rem;font-weight:700;border:none;cursor:pointer;background:var(--s2);color:var(--txt2)">
+        🏷️ HĐ Bán
+      </button>
+    </div>
+    <div id="dsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;max-height:52vh;overflow-y:auto"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalDS')">Đóng</button>
       <button class="btn btn-violet btn-md" style="flex:1" onclick="newHoaDon();closeModal('modalDS')">➕ Tạo mới</button>
@@ -629,7 +667,7 @@ let state = {id:genId(), items:[], suaIdx:-1, gcType:null};
 window.addEventListener('DOMContentLoaded',()=>{
   ensureTable().catch(()=>{});
   document.getElementById('txtNgayXuat').value = today();
-  updateHeader(); renderItems(); setupAC(); setupDVAC();
+  updateHeader(); renderItems(); setupAC(); setupDVAC(); loadMarkup();
   document.getElementById('txtSoLuong').addEventListener('keydown',e=>{if(e.key==='Enter')themLinhKien();});
   document.getElementById('inputSuaGia').addEventListener('keydown',e=>{if(e.key==='Enter')confirmSuaGia();});
   document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');}));
@@ -676,6 +714,41 @@ function calcT(it){
   if(it.loai==='in3d')return(it.gio||0)*(it.dg||0);
   return(it.r||0)*(it.c||0)*(it.dg||0);
 }
+
+function getDVT(loai){
+  return (loai==='lk'||loai==='pcb') ? 'Cái' : 'Bộ';
+}
+function getMarkup(){
+  const lk=(parseFloat(document.getElementById('pctLK')?.value)||15)/100;
+  const gc=(parseFloat(document.getElementById('pctGC')?.value)||40)/100;
+  return {lk,gc};
+}
+function saveMarkup(){
+  const lk=document.getElementById('pctLK')?.value||'15';
+  const gc=document.getElementById('pctGC')?.value||'40';
+  localStorage.setItem('bmt_markup',JSON.stringify({lk,gc}));
+  renderItems();
+}
+function loadMarkup(){
+  try{
+    const s=JSON.parse(localStorage.getItem('bmt_markup')||'{}');
+    if(s.lk&&document.getElementById('pctLK'))document.getElementById('pctLK').value=s.lk;
+    if(s.gc&&document.getElementById('pctGC'))document.getElementById('pctGC').value=s.gc;
+  }catch{}
+}
+function toggleMarkupSettings(){
+  const el=document.getElementById('markupSettings');
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+function calcTBan(it){
+  const goc=calcT(it);
+  const m=getMarkup();
+  // Tất cả làm tròn LÊN đến 1.000đ
+  return Math.ceil(goc*(1+( it.loai==='lk' ? m.lk : m.gc ))/1000)*1000;
+}
+function calcTDisplay(it){
+  return state.loaiHD==='ban'?calcTBan(it):calcT(it);
+}
 const BADGE={lk:'b-lk',pcb:'b-pcb',mica:'b-mica',fomex:'b-fomex',in3d:'b-in3d'};
 const BTXT={lk:'Linh kiện',pcb:'PCB',mica:'Mica',fomex:'Fomex',in3d:'In 3D'};
 
@@ -705,7 +778,7 @@ function renderItems(){
       <span class="item-stt">${i+1}</span>
       <div class="item-body">
         <div class="item-name">${escH(it.ten)} <span class="badge ${BADGE[it.loai]||'b-lk'}">${BTXT[it.loai]||'?'}</span></div>
-        <div class="item-meta">${qtyHtml}</div>
+        <div class="item-meta"><span class="dvt-tag">${getDVT(it.loai)}</span> ${qtyHtml}</div>
       </div>
       <div class="item-right">
         <span class="item-thanh" id="thanh-${i}">${fmt(calcTDisplay(it))}</span>
@@ -1002,24 +1075,29 @@ function setLoading(msg) {
 
 async function luuHoaDon() {
   if(!state.items.length){toast('error','Không có dữ liệu để lưu');return;}
+  // ID lưu: thêm hậu tố -G (gốc) hoặc -B (bán)
+  const suffix = state.loaiHD === 'ban' ? '-B' : '-G';
+  const baseId = state.id.replace(/-[GB]$/, ''); // bỏ hậu tố cũ nếu có
+  const saveId = baseId + suffix;
   const hd = {
-    id: state.id,
+    id: saveId,
     don_vi: document.getElementById('txtDonVi').value.trim(),
     du_an:  document.getElementById('txtDuAn').value.trim(),
     ngay_xuat: document.getElementById('txtNgayXuat').value,
     items: JSON.parse(JSON.stringify(state.items)),
+    loai_hd: state.loaiHD,
     updated_at: new Date().toISOString()
   };
   // Save local immediately
   const local = getLocalAll();
-  const li = local.findIndex(x=>x.id===hd.id);
-  const localFmt = {id:hd.id,donVi:hd.don_vi,duAn:hd.du_an,ngay:hd.ngay_xuat,items:hd.items,ts:hd.updated_at};
+  const li = local.findIndex(x=>x.id===saveId);
+  const localFmt = {id:saveId,donVi:hd.don_vi,duAn:hd.du_an,ngay:hd.ngay_xuat,items:hd.items,loaiHD:state.loaiHD,ts:hd.updated_at};
   if(li>=0) local[li]=localFmt; else local.unshift(localFmt);
   setLocalAll(local);
   // Save to Supabase
   setLoading('Đang lưu lên cloud...');
   try {
-    await sbFetch('hoadon?id=eq.' + hd.id, {
+    await sbFetch('hoadon?id=eq.' + saveId, {
       method: 'DELETE', prefer: 'return=minimal'
     });
     await sbFetch('hoadon', {
@@ -1028,11 +1106,11 @@ async function luuHoaDon() {
       prefer: 'return=minimal'
     });
     setLoading(null);
-    toast('success', `☁️ Đã lưu cloud [${hd.id}]`);
+    toast('success', `☁️ Đã lưu cloud [${saveId}]`);
     switchTab(1);renderItems();
   } catch(e) {
     setLoading(null);
-    toast('info', `💾 Lưu local (offline): [${hd.id}]`);
+    toast('info', `💾 Lưu local (offline): [${saveId}]`);
     switchTab(1);renderItems();
     console.warn('Supabase error:', e);
   }
@@ -1047,43 +1125,71 @@ function newHoaDon() {
   updateHeader();renderItems();toast('info','Hóa đơn mới');
 }
 
-async function openDanhSach() {
-  const el = document.getElementById('dsList');
-  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--txt2)">⏳ Đang tải...</div>';
-  document.getElementById('modalDS').classList.add('show');
-  
-  let list = [];
-  try {
-    const rows = await sbFetch('hoadon?order=updated_at.desc&limit=100');
-    list = rows.map(r => ({
-      id: r.id, donVi: r.don_vi, duAn: r.du_an,
-      ngay: r.ngay_xuat, items: r.items, ts: r.updated_at
-    }));
-    // Merge with local (local-only items not on cloud)
-    const local = getLocalAll();
-    local.forEach(lhd => { if(!list.find(x=>x.id===lhd.id)) list.push(lhd); });
-  } catch(e) {
-    console.warn('Supabase offline, using local');
-    list = getLocalAll();
-  }
+// Cache danh sách HĐ
+let _dsCache = [];
+let _dsTab = 'goc'; // tab đang active
 
-  if(!list.length) {
-    el.innerHTML='<div style="text-align:center;padding:32px;color:var(--txt3)">Chưa có hóa đơn nào</div>';
+function switchDSTab(tab) {
+  _dsTab = tab;
+  // Cập nhật style tab button
+  const accent = 'var(--accent)', s2 = 'var(--s2)';
+  document.getElementById('dsTabG').style.background = tab==='goc' ? accent : s2;
+  document.getElementById('dsTabG').style.color = tab==='goc' ? '#fff' : 'var(--txt2)';
+  document.getElementById('dsTabB').style.background = tab==='ban' ? '#e55039' : s2;
+  document.getElementById('dsTabB').style.color = tab==='ban' ? '#fff' : 'var(--txt2)';
+  _renderDSList();
+}
+
+function _renderDSList() {
+  const el = document.getElementById('dsList');
+  // Lọc theo tab: gốc = id kết thúc -G hoặc không có hậu tố; bán = kết thúc -B
+  const filtered = _dsCache.filter(hd => {
+    if (_dsTab === 'ban') return hd.id.endsWith('-B');
+    return hd.id.endsWith('-G') || !hd.id.match(/-[GB]$/);
+  });
+  if (!filtered.length) {
+    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--txt3)">Chưa có hóa đơn nào</div>';
     return;
   }
-  el.innerHTML = list.map(hd => {
-    const tot = hd.items ? hd.items.reduce((s,it)=>s+calcT(it),0) : 0; // luôn dùng giá gốc trong danh sách
-    const isCloud = '☁️';
+  el.innerHTML = filtered.map(hd => {
+    const tot = hd.items ? hd.items.reduce((s,it)=>s+(_dsTab==='ban'?calcTBan(it):calcT(it)),0) : 0;
+    const baseId = hd.id.replace(/-[GB]$/, '');
     return `<div class="hd-card" onclick="moHD('${hd.id}')">
-      <span class="hd-card-id">${hd.id}</span>
+      <span class="hd-card-id">${baseId}</span>
       <div class="hd-card-body">
         <div class="hd-card-main">${escH(hd.donVi||'(Chưa có đơn vị)')}</div>
-        <div class="hd-card-sub">${escH(hd.duAn||'—')} · ${fmtDate(hd.ngay)} · ${(hd.items||[]).length} mục ${isCloud}</div>
+        <div class="hd-card-sub">${escH(hd.duAn||'—')} · ${fmtDate(hd.ngay)} · ${(hd.items||[]).length} mục ☁️</div>
       </div>
       <span class="hd-card-tien">${fmt(tot)}</span>
       <button class="hd-card-del" onclick="delHD('${hd.id}',event)">🗑</button>
     </div>`;
   }).join('');
+}
+
+async function openDanhSach() {
+  const el = document.getElementById('dsList');
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--txt2)">⏳ Đang tải...</div>';
+  document.getElementById('modalDS').classList.add('show');
+  // Reset tab về loại đang chọn hiện tại
+  switchDSTab(state.loaiHD || 'goc');
+
+  let list = [];
+  try {
+    const rows = await sbFetch('hoadon?order=updated_at.desc&limit=100');
+    list = rows.map(r => ({
+      id: r.id, donVi: r.don_vi, duAn: r.du_an,
+      ngay: r.ngay_xuat, items: r.items, loaiHD: r.loai_hd, ts: r.updated_at
+    }));
+    const local = getLocalAll();
+    local.forEach(lhd => { if(!list.find(x=>x.id===lhd.id)) list.push(lhd); });
+  } catch(e) {
+    list = getLocalAll();
+  }
+
+  // Sắp xếp mới nhất trước
+  list.sort((a,b) => (b.ts||'').localeCompare(a.ts||''));
+  _dsCache = list;
+  _renderDSList();
 }
 
 function moHD(id) {
@@ -1107,11 +1213,20 @@ function moHD(id) {
 }
 
 function _loadHD(hd) {
-  state.id = hd.id;
+  // Tách base id (bỏ hậu tố -G/-B) để state.id luôn là base
+  state.id = hd.id.replace(/-[GB]$/, '');
   state.items = JSON.parse(JSON.stringify(hd.items || []));
+  // Khôi phục loại HĐ từ record hoặc suy từ hậu tố
+  const loai = hd.loaiHD || (hd.id.endsWith('-B') ? 'ban' : 'goc');
+  state.loaiHD = loai;
   document.getElementById('txtDonVi').value = hd.donVi || '';
   document.getElementById('txtDuAn').value  = hd.duAn  || '';
   document.getElementById('txtNgayXuat').value = hd.ngay || today();
+  // Cập nhật UI switch
+  document.getElementById('btnHDGoc').className = 'btn btn-sm ' + (loai==='goc' ? 'btn-hd-active' : 'btn-hd-inactive');
+  document.getElementById('btnHDBan').className = 'btn btn-sm ' + (loai==='ban' ? 'btn-hd-active' : 'btn-hd-inactive');
+  const panel = document.getElementById('panel0');
+  panel.classList.toggle('ban-mode', loai==='ban');
   updateHeader();
   closeModal('modalDS');
   switchTab(1);
@@ -1144,16 +1259,16 @@ async function xuatExcel(){
   const da=document.getElementById('txtDuAn').value.trim();
   const ng=document.getElementById('txtNgayXuat').value;
   const rows=[['Đơn vị:',dv],['Dự án:',da],['Ngày:',fmtDate(ng)],[],
-    ['STT','Tên hàng','SL / Tham số','Đơn giá','Thành tiền']];
+    ['STT','Tên hàng','ĐVT','SL / Tham số','Đơn giá','Thành tiền']];
   let stt=1;
   state.items.forEach(it=>{
     const ts=it.loai==='lk'?it.sl:it.loai==='in3d'?it.gio+' giờ':it.r+'×'+it.c+' cm²';
-    const dgHien = state.loaiHD==='ban' ? (it.loai==='lk' ? Math.round(it.dg*1.15/1000)*1000 : Math.round(it.dg*1.4)) : it.dg;
-    rows.push([stt++,it.ten,ts,dgHien,calcTDisplay(it)]);
+    const _m=getMarkup(); const dgHien = state.loaiHD==='ban' ? Math.ceil(it.dg*(1+( it.loai==='lk' ? _m.lk : _m.gc ))/1000)*1000 : it.dg;
+    rows.push([stt++,it.ten,getDVT(it.loai),ts,dgHien,calcTDisplay(it)]);
   });
-  rows.push([],['','','','Tổng:',state.items.reduce((s,it)=>s+calcTDisplay(it),0)]);
+  rows.push([],['','','','','Tổng:',state.items.reduce((s,it)=>s+calcTDisplay(it),0)]);
   const ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:6},{wch:36},{wch:16},{wch:14},{wch:16}];
+  ws['!cols']=[{wch:6},{wch:36},{wch:8},{wch:16},{wch:14},{wch:16}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'HoaDon');
   XLSX.writeFile(wb,`HoaDon_${(dv||'BMT').replace(/\s+/g,'_')}_${ng||'unknown'}.xlsx`);
   toast('success','Xuất Excel xong!');
@@ -1172,11 +1287,11 @@ function xuatPDF(){
   const LCLR={lk:'#0077b6',pcb:'#06b67a',mica:'#7c3aed',fomex:'#d97706',in3d:'#dc2626'};
   const LTXT={lk:'Linh kiện',pcb:'PCB',mica:'Mica',fomex:'Fomex',in3d:'In 3D'};
   const rows=state.items.map((it,i)=>{
-    const ts=it.loai==='lk'?it.sl:it.loai==='in3d'?it.gio+' giờ':it.r+'×'+it.c+' cm²';
+    const ts=it.loai==='lk'?it.sl+' cái':it.loai==='in3d'?it.gio+' giờ':it.r+'×'+it.c+' cm²';
     const c=LCLR[it.loai]||'#333';const l=LTXT[it.loai]||'';
     return`<tr><td style="text-align:center;color:#666">${i+1}</td>
       <td>${escH(it.ten)}</td>
-      <td style="text-align:center"><span style="background:${c}22;color:${c};padding:2px 7px;border-radius:12px;font-size:10px;font-weight:700">${l}</span></td>
+      <td style="text-align:center;font-size:11px;font-weight:700">${getDVT(it.loai)}</td>
       <td style="text-align:center;font-family:monospace;font-size:11px">${ts}</td>
       <td style="text-align:right;font-family:monospace;font-size:11px">${fmtN(it.dg)}</td>
       <td style="text-align:right;font-family:monospace;font-size:12px;font-weight:700;color:#0d4f8c">${fmtN(calcTDisplay(it))}</td></tr>`;
@@ -1222,10 +1337,10 @@ function xuatPDF(){
   </div>
   <table><thead><tr>
     <th style="width:36px;text-align:center">STT</th><th style="text-align:left">Tên hàng</th>
-    <th style="width:68px;text-align:center">Loại</th><th style="width:110px;text-align:center">SL/Tham số</th>
-    <th style="width:110px;text-align:right">Đơn giá</th><th style="width:120px;text-align:right">Thành tiền</th>
+    <th style="width:50px;text-align:center">ĐVT</th><th style="width:110px;text-align:center">Số lượng</th>
+    <th style="width:120px;text-align:right">Đơn giá</th><th style="width:130px;text-align:right">Thành tiền</th>
   </tr></thead><tbody>${rows}
-    <tr class="tong"><td colspan="5" style="text-align:right;padding-right:12px">TỔNG TIỀN (VNĐ):</td><td style="text-align:right">${fmtN(total)}</td></tr>
+    <tr class="tong"><td colspan="4" style="text-align:right;padding-right:12px">TỔNG TIỀN (VNĐ):</td><td colspan="2" style="text-align:right">${fmtN(total)}</td></tr>
   </tbody></table>
   <div class="footer">
     <div class="note"><strong style="color:#0d2a5e">Ghi chú:</strong><br>Báo giá có giá trị 30 ngày.<br>Liên hệ BMT Team để được hỗ trợ.</div>
