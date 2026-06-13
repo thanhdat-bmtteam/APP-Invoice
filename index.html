@@ -804,8 +804,27 @@ const DEFAULT_DON_VI = [
   "Trường THCS Kim Đồng","Trường THCS Hiệp Đức - Đồng Tháp","Trường TH Nguyễn Thị Hoa",
 ];
 
-function loadBG(){try{const e=JSON.parse(localStorage.getItem('bmt_bg')||'{}');return Object.assign({},DEFAULT_BANG_GIA,e);}catch{return{...DEFAULT_BANG_GIA};}}
-function saveBG(bg){const c={};for(const k in bg)if(!(k in DEFAULT_BANG_GIA))c[k]=bg[k];localStorage.setItem('bmt_bg',JSON.stringify(c));}
+function loadBG(){
+  try{
+    const e=JSON.parse(localStorage.getItem('bmt_bg')||'{}');
+    const deleted=JSON.parse(localStorage.getItem('bmt_bg_deleted')||'[]');
+    const merged=Object.assign({},DEFAULT_BANG_GIA,e);
+    deleted.forEach(k=>delete merged[k]);
+    return merged;
+  }catch{return{...DEFAULT_BANG_GIA};}
+}
+function saveBG(bg){
+  const extra={};
+  const deleted=[];
+  for(const k in bg){
+    if(!(k in DEFAULT_BANG_GIA)) extra[k]=bg[k];
+  }
+  for(const k in DEFAULT_BANG_GIA){
+    if(!(k in bg)) deleted.push(k);
+  }
+  localStorage.setItem('bmt_bg',JSON.stringify(extra));
+  localStorage.setItem('bmt_bg_deleted',JSON.stringify(deleted));
+}
 function getDVList(){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');return[...DEFAULT_DON_VI,...e.filter(x=>!DEFAULT_DON_VI.includes(x))];}catch{return[...DEFAULT_DON_VI];}}
 function saveDV(n){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');if(!e.includes(n)){e.push(n);localStorage.setItem('bmt_dv',JSON.stringify(e));}}catch{}}
 
@@ -1645,6 +1664,7 @@ function bgAddRow() {
 function bgResetDefault() {
   if (!confirm('Bạn có muốn xóa toàn bộ bảng giá tùy chỉnh và về danh sách mặc định không?')) return;
   localStorage.removeItem('bmt_bg');
+  localStorage.removeItem('bmt_bg_deleted');
   BG = loadBG();
   renderBangGia();
   toast('ok', '🔄 Đã khôi phục bảng giá mặc định');
