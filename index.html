@@ -959,11 +959,18 @@ const DEFAULT_DON_VI = [
 
 function loadBG(){
   try{
+    const synced = localStorage.getItem('bmt_cloud_synced');
     const e=JSON.parse(localStorage.getItem('bmt_bg')||'{}');
     const deleted=JSON.parse(localStorage.getItem('bmt_bg_deleted')||'[]');
-    const merged=Object.assign({},DEFAULT_BANG_GIA,e);
-    deleted.forEach(k=>delete merged[k]);
-    return merged;
+    if(synced){
+      // Đã sync cloud → chỉ dùng extra, không merge DEFAULT
+      return Object.assign({},e);
+    } else {
+      // Chưa sync lần nào → dùng DEFAULT (lần đầu)
+      const merged=Object.assign({},DEFAULT_BANG_GIA,e);
+      deleted.forEach(k=>delete merged[k]);
+      return merged;
+    }
   }catch{return{...DEFAULT_BANG_GIA};}
 }
 function saveBG(bg){
@@ -2561,10 +2568,11 @@ const DB = {
       return row ? row.data : null;
     };
 
-    // Bảng giá: ghi đè hoàn toàn
+    // Bảng giá: ghi đè hoàn toàn từ cloud
     const bgData = get('banggia');
     localStorage.setItem('bmt_bg', JSON.stringify(bgData?.extra || {}));
     localStorage.setItem('bmt_bg_deleted', JSON.stringify(bgData?.deleted || []));
+    localStorage.setItem('bmt_cloud_synced', '1'); // Đánh dấu đã sync cloud
     BG = loadBG();
 
     // Dự án
