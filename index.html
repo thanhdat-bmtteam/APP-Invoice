@@ -2556,39 +2556,53 @@ const DB = {
 
   // ── Pull tất cả settings từ cloud về local ────────────
   async _pullAll() {
+    // ── Settings (duan, banggia, donvi, markup) ──────────
     const rows = await sbFetch('settings?select=id,data,updated_at');
     rows.forEach(row => {
-      const local = localStorage.getItem(row.id);
-      // Cloud thắng nếu không có local, hoặc cloud mới hơn
-      const localTs = localStorage.getItem(row.id + '_ts') || '0';
-      if (!local || row.updated_at > localTs) {
-        localStorage.setItem(row.id, JSON.stringify(row.data));
-        localStorage.setItem(row.id + '_ts', row.updated_at);
-      }
+      // Cloud là nguồn duy nhất — ghi đè local hoàn toàn
+      localStorage.setItem(row.id, JSON.stringify(row.data));
+      localStorage.setItem(row.id + '_ts', row.updated_at);
     });
 
-    // Kéo hóa đơn từ cloud
-    const hdRows = await sbFetch('hoadon?order=updated_at.desc&limit=300');
+    // Áp dụng banggia từ cloud nếu có
+    const bgRow = rows.find(r => r.id === 'banggia');
+    if (bgRow && bgRow.data) {
+      localStorage.setItem('bmt_bg', JSON.stringify(bgRow.data.extra || {}));
+      localStorage.setItem('bmt_bg_deleted', JSON.stringify(bgRow.data.deleted || []));
+    }
+    // Áp dụng duan từ cloud nếu có
+    const daRow = rows.find(r => r.id === 'duan');
+    if (daRow && daRow.data) {
+      localStorage.setItem('bmt_duan', JSON.stringify(daRow.data));
+    }
+    // Áp dụng donvi từ cloud nếu có
+    const dvRow = rows.find(r => r.id === 'donvi');
+    if (dvRow && dvRow.data) {
+      localStorage.setItem('bmt_dv', JSON.stringify(dvRow.data));
+    }
+    // Áp dụng markup từ cloud nếu có
+    const mkRow = rows.find(r => r.id === 'markup');
+    if (mkRow && mkRow.data) {
+      localStorage.setItem('bmt_markup', JSON.stringify(mkRow.data));
+    }
+
+    // ── Hóa đơn: cloud là nguồn duy nhất ─────────────────
+    const hdRows = await sbFetch('hoadon?order=updated_at.desc&limit=500');
     const cloudHD = hdRows.map(r => ({
       id: r.id, donVi: r.don_vi, duAn: r.du_an,
       ngay: r.ngay_xuat, items: r.items,
       loaiHD: r.loai_hd, ts: r.updated_at
     }));
-    // Merge: cloud thắng nếu cùng id
-    const localHD = getLocalAll();
-    const merged = [...cloudHD];
-    localHD.forEach(lhd => {
-      if (!merged.find(c => c.id === lhd.id)) merged.push(lhd);
-    });
-    setLocalAll(merged);
+    // Ghi đè local hoàn toàn bằng cloud
+    setLocalAll(cloudHD);
 
-    // Reload dữ liệu vào bộ nhớ app
+    // ── Reload UI ─────────────────────────────────────────
     BG = loadBG();
+    loadMarkup();
     renderItems();
     if (document.getElementById('panel3')?.classList.contains('active')) renderDuAnList();
     if (document.getElementById('panel4')?.classList.contains('active')) renderNhanVienPage();
     if (document.getElementById('panel2')?.classList.contains('active')) renderBangGia();
-    loadMarkup();
   },
 
   // ── Push 1 key lên cloud ──────────────────────────────
