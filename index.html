@@ -523,6 +523,7 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
       <button class="btn btn-green btn-sm" onclick="bgSaveAll()">💾 Lưu tất cả</button>
       <button class="btn btn-ghost btn-sm" onclick="bgImportCSV()">📥 Import CSV</button>
       <button class="btn btn-ghost btn-sm" onclick="bgExportCSV()">📤 Export CSV</button>
+      <button class="btn btn-accent btn-sm" onclick="DB.pushAll()">☁️ Đẩy lên cloud</button>
       <button class="btn btn-danger btn-sm" onclick="bgResetDefault()" style="margin-left:auto">🔄 Về mặc định</button>
     </div>
 
@@ -2554,6 +2555,21 @@ const DB = {
     this._ensureTables().catch(()=>{});
   },
 
+  // Gọi từ máy chủ để push toàn bộ dữ liệu local lên cloud 1 lần
+  async pushAll() {
+    try {
+      await Promise.all([
+        this.push('duan'),
+        this.push('banggia'),
+        this.push('donvi'),
+        this.push('markup'),
+      ]);
+      toast('ok', '☁️ Đã đẩy toàn bộ dữ liệu lên cloud!');
+    } catch(e) {
+      toast('warn', '⚠️ Push thất bại: ' + e.message);
+    }
+  },
+
   // ── Pull tất cả settings từ cloud về local ────────────
   async _pullAll() {
     // ── Settings (duan, banggia, donvi, markup) ──────────
@@ -2564,26 +2580,36 @@ const DB = {
       localStorage.setItem(row.id + '_ts', row.updated_at);
     });
 
-    // Áp dụng banggia từ cloud nếu có
+    // Cloud là nguồn duy nhất — có thì ghi đè, không có thì xóa local
     const bgRow = rows.find(r => r.id === 'banggia');
     if (bgRow && bgRow.data) {
       localStorage.setItem('bmt_bg', JSON.stringify(bgRow.data.extra || {}));
       localStorage.setItem('bmt_bg_deleted', JSON.stringify(bgRow.data.deleted || []));
+    } else {
+      // Cloud không có banggia → xóa local (máy này đã xóa hết)
+      localStorage.removeItem('bmt_bg');
+      localStorage.removeItem('bmt_bg_deleted');
     }
-    // Áp dụng duan từ cloud nếu có
+
     const daRow = rows.find(r => r.id === 'duan');
     if (daRow && daRow.data) {
       localStorage.setItem('bmt_duan', JSON.stringify(daRow.data));
+    } else {
+      localStorage.removeItem('bmt_duan');
     }
-    // Áp dụng donvi từ cloud nếu có
+
     const dvRow = rows.find(r => r.id === 'donvi');
     if (dvRow && dvRow.data) {
       localStorage.setItem('bmt_dv', JSON.stringify(dvRow.data));
+    } else {
+      localStorage.removeItem('bmt_dv');
     }
-    // Áp dụng markup từ cloud nếu có
+
     const mkRow = rows.find(r => r.id === 'markup');
     if (mkRow && mkRow.data) {
       localStorage.setItem('bmt_markup', JSON.stringify(mkRow.data));
+    } else {
+      localStorage.removeItem('bmt_markup');
     }
 
     // ── Hóa đơn: cloud là nguồn duy nhất ─────────────────
