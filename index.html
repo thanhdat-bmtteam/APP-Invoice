@@ -974,7 +974,7 @@ function loadBG(){
   }catch{return{...DEFAULT_BANG_GIA};}
 }
 function saveBG(bg){
-  // Cloud-only: lưu toàn bộ BG hiện tại vào extra, deleted = key DEFAULT nào bị bỏ
+  // Cloud-only: lưu toàn bộ BG hiện tại
   const extra={};
   const deleted=[];
   for(const k in bg){ extra[k]=bg[k]; }
@@ -983,9 +983,13 @@ function saveBG(bg){
   }
   localStorage.setItem('bmt_bg', JSON.stringify(extra));
   localStorage.setItem('bmt_bg_deleted', JSON.stringify(deleted));
+  // Push cloud ngay sau khi lưu local
+  DB.push('banggia')
+    .then(()=> toast('ok','☁️ Đã lưu bảng giá lên cloud'))
+    .catch(e => toast('warn','☁️ Lỗi sync: ' + e.message));
 }
 function getDVList(){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');return[...DEFAULT_DON_VI,...e.filter(x=>!DEFAULT_DON_VI.includes(x))];}catch{return[...DEFAULT_DON_VI];}}
-function saveDV(n){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');if(!e.includes(n)){e.push(n);localStorage.setItem('bmt_dv',JSON.stringify(e));}}catch{}}
+function saveDV(n){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');if(!e.includes(n)){e.push(n);localStorage.setItem('bmt_dv',JSON.stringify(e));DB.push('donvi').catch(()=>{});}}catch{}}
 
 let BG = loadBG();
 let state = {id:genId(), items:[], suaIdx:-1, gcType:null};
@@ -1057,6 +1061,7 @@ function saveMarkup(){
   const gc=document.getElementById('pctGC')?.value||'40';
   localStorage.setItem('bmt_markup',JSON.stringify({lk,gc}));
   renderItems();
+  DB.push('markup').catch(()=>{});
 }
 function loadMarkup(){
   try{
@@ -2616,13 +2621,19 @@ const DB = {
       case 'markup': data = JSON.parse(localStorage.getItem('bmt_markup') || '{}'); break;
       default: return;
     }
-    // Upsert
-    await sbFetch('settings?id=eq.' + key, { method: 'DELETE', prefer: 'return=minimal' });
-    await sbFetch('settings', {
+    console.log('[DB.push] key='+key, 'data keys:', key==='banggia'?Object.keys(data.extra||{}).length+' items':JSON.stringify(data).slice(0,80));
+    // Upsert: DELETE rồi INSERT
+    try {
+      await sbFetch('settings?id=eq.' + key, { method: 'DELETE', prefer: 'return=minimal' });
+      console.log('[DB.push] DELETE ok');
+    } catch(e) { console.warn('[DB.push] DELETE err:', e.message); }
+    const res = await sbFetch('settings', {
       method: 'POST',
       body: JSON.stringify({ id: key, data, updated_at: new Date().toISOString() }),
-      prefer: 'return=minimal'
+      prefer: 'return=representation'
     });
+    console.log('[DB.push] POST ok, id='+key, res);
+    return res;
   },
 
   // ── Push tất cả settings lên cloud 1 lần ──────────────
@@ -2646,25 +2657,13 @@ const DB = {
 
 // ── Auto-sync sau mỗi thay đổi ────────────────────────────
 // Patch saveBG
-const _origSaveBG = saveBG;
-function saveBG(bg) {
-  _origSaveBG(bg);
-  DB.push('banggia').catch(e => toast('warn','☁️ Lỗi sync bảng giá: ' + e.message));
-}
+// saveBG already pushes to cloud directly
 
 // Patch saveDV
-const _origSaveDV = saveDV;
-function saveDV(n) {
-  _origSaveDV(n);
-  DB.push('donvi').catch(()=>{});
-}
+// saveDV patch removed - see saveDV below
 
 // Patch saveMarkup
-const _origSaveMarkup = saveMarkup;
-function saveMarkup() {
-  _origSaveMarkup();
-  DB.push('markup').catch(()=>{});
-}
+// saveMarkup patch removed - see saveMarkup below
 
 // saveDuAn đã gọi DB.push('duan') bên trong
 function saveDuAn(list) {
