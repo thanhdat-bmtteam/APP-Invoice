@@ -595,6 +595,7 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
         <option>Nguyễn Lê Hoài Nam</option>
         <option>Lê Thị Thanh Bình</option>
         <option>Nguyễn Nhựt Duy</option>
+        <option>Lâm Hà Phúc Ẩn</option>
       </select>
       <select id="nvTTFilter" style="flex:0 0 130px" onchange="renderNhanVienPage()">
         <option value="">Tất cả trạng thái</option>
@@ -785,6 +786,7 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
                 <option>Nguyễn Lê Hoài Nam</option>
                 <option>Lê Thị Thanh Bình</option>
                 <option>Nguyễn Nhựt Duy</option>
+              <option>Lâm Hà Phúc Ẩn</option>
               </select>
               <select id="tcChiMuc" style="flex:1;min-width:120px">
                 <option value="">-- Mục chi --</option>
@@ -877,6 +879,23 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
     <div class="modal-actions">
       <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalCK')">Hủy</button>
       <button class="btn btn-green btn-md" style="flex:1" onclick="xacNhanCK()">✅ Xác nhận đã CK</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── MODAL QR CHUYỂN KHOẢN ── -->
+<div class="modal-overlay" id="modalQR" onclick="if(event.target===this)closeModal('modalQR')">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="qrTitle">📱 QR Chuyển khoản</div>
+    <div style="background:#fff;border-radius:12px;padding:16px;text-align:center;margin-bottom:12px">
+      <img id="qrImg" src="" alt="QR Code" style="width:100%;max-width:280px;border-radius:8px" onerror="this.alt='Không tải được QR'">
+    </div>
+    <div id="qrInfo" style="background:var(--s2);border-radius:8px;padding:10px 14px;font-size:.82rem;display:flex;flex-direction:column;gap:4px"></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalQR')">Đóng</button>
+      <button class="btn btn-green btn-md" style="flex:1" onclick="closeModal('modalQR');openModalCKNVAll(window._qrNV)">✅ Xác nhận đã TT</button>
     </div>
   </div>
 </div>
@@ -2302,8 +2321,24 @@ async function xuatTongDuAn(format){
 // ══════════════════════════════════════════════════════
 const DS_NHANVIEN = [
   'Đỗ Thành Đạt','Phạm Trần Đăng Khoa','Huỳnh Công Hiếu',
-  'Nguyễn Lê Hoài Nam','Lê Thị Thanh Bình','Nguyễn Nhựt Duy'
+  'Nguyễn Lê Hoài Nam','Lê Thị Thanh Bình','Nguyễn Nhựt Duy','Lâm Hà Phúc Ẩn'
 ];
+const NV_BANK = {
+  'Đỗ Thành Đạt':       { bank:'MB Bank',      bin:'970422', stk:'0799896871' },
+  'Phạm Trần Đăng Khoa':{ bank:'MB Bank',      bin:'970422', stk:'0374174783' },
+  'Huỳnh Công Hiếu':    { bank:'Vietcombank',  bin:'970436', stk:'1049609356' },
+  'Nguyễn Lê Hoài Nam': { bank:'MB Bank',      bin:'970422', stk:'199555234999' },
+  'Lê Thị Thanh Bình':  { bank:'MB Bank',      bin:'970422', stk:'270105052408' },
+  'Nguyễn Nhựt Duy':    { bank:'MB Bank',      bin:'970422', stk:'6767676767222' },
+  'Lâm Hà Phúc Ẩn':    { bank:'MB Bank',      bin:'970422', stk:'0702982044' },
+};
+function getVietQRUrl(nvName, amount, addInfo){
+  const b = NV_BANK[nvName];
+  if(!b) return null;
+  const info = encodeURIComponent(addInfo||'Luong BMT Team');
+  const name = encodeURIComponent(nvName);
+  return 'https://img.vietqr.io/image/'+b.bin+'-'+b.stk+'-compact2.png?amount='+Math.round(amount)+'&addInfo='+info+'&accountName='+name;
+}
 let _ckNVTarget = null; // { daId, chiId }
 
 function renderNhanVienPage(){
@@ -2364,8 +2399,15 @@ function renderNhanVienPage(){
     }).join('');
 
     // Nút TT tất cả chưa TT của NV này
+    const b = NV_BANK[nv];
+    const qrBtn = b
+      ? `<button class="btn btn-ghost btn-sm" onclick="openQRModal('${nv}',${tongChua})" style="border-color:var(--accent);color:var(--accent)">📱 QR CK</button>`
+      : '';
     const btnTTAll = tongChua > 0
-      ? `<button class="btn btn-green btn-sm" onclick="openModalCKNVAll('${nv}')">✅ TT tất cả (${fmtN(tongChua)})</button>`
+      ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+           <button class="btn btn-green btn-sm" onclick="openModalCKNVAll('${nv}')">✅ TT tất cả (${fmtN(tongChua)})</button>
+           ${qrBtn}
+         </div>`
       : `<span style="font-size:.75rem;color:var(--green)">✅ Đã TT hết</span>`;
 
     return `<div class="nv-card">
@@ -2472,6 +2514,39 @@ function xacNhanCK(){
   renderDuAnDetail();
   renderDuAnList();
   renderNhanVienPage();
+}
+
+// ── QR CHUYỂN KHOẢN ─────────────────────────────────────────────────────────
+function openQRModal(nvName, amount){
+  window._qrNV = nvName;
+  const b = NV_BANK[nvName];
+  if(!b){ toast('warn','⚠️ Chưa có thông tin ngân hàng'); return; }
+
+  const addInfo = 'Luong BMT ' + nvName.split(' ').pop();
+  const qrUrl = getVietQRUrl(nvName, amount, addInfo);
+
+  document.getElementById('qrTitle').textContent = '📱 QR - ' + nvName;
+  document.getElementById('qrImg').src = qrUrl;
+  document.getElementById('qrInfo').innerHTML = `
+    <div style="display:flex;justify-content:space-between">
+      <span style="color:var(--txt3)">Ngân hàng</span>
+      <span style="font-weight:700">${escH(b.bank)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="color:var(--txt3)">Số TK</span>
+      <span style="font-weight:700;font-family:'JetBrains Mono',monospace">${escH(b.stk)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="color:var(--txt3)">Chủ TK</span>
+      <span style="font-weight:700">${escH(nvName)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px">
+      <span style="color:var(--txt3)">Số tiền</span>
+      <span style="font-weight:800;font-size:1rem;color:var(--green)">${fmtN(amount)} vnđ</span>
+    </div>
+    <div style="font-size:.7rem;color:var(--txt3);text-align:center;margin-top:4px">Nội dung: ${escH(addInfo)}</div>
+  `;
+  document.getElementById('modalQR').classList.add('show');
 }
 
 </script>
