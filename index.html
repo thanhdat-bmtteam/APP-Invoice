@@ -1374,26 +1374,48 @@ async function sbFetch(path, opts={}) {
 // Ensure table exists (called once on load)
 async function ensureTable() {
   try {
+    // Kiểm tra kết nối + tạo/migrate bảng
     await sbFetch('hoadon?limit=1', { prefer: 'count=none' });
+    // Thêm cột loai_hd nếu chưa có (migration)
+    await sbFetch('rpc/exec_sql_safe', {
+      method:'POST',
+      body: JSON.stringify({ query: 'alter table hoadon add column if not exists loai_hd text; alter table hoadon add column if not exists don_vi text; alter table hoadon add column if not exists du_an text;' }),
+      prefer: 'return=minimal'
+    }).catch(()=>{}); // ignore nếu RPC không tồn tại
   } catch(e) {
-    // Table might not exist – create via SQL API
-    await fetch(SB_URL + '/rest/v1/rpc/exec_sql', {
-      method: 'POST',
-      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: `
-        create table if not exists hoadon (
-          id text primary key,
-          don_vi text, du_an text, ngay_xuat text,
-          items jsonb, updated_at timestamptz default now()
-        );
-        alter table hoadon enable row level security;
-        create policy if not exists "pub_sel" on hoadon for select using (true);
-        create policy if not exists "pub_ins" on hoadon for insert with check (true);
-        create policy if not exists "pub_upd" on hoadon for update using (true);
-        create policy if not exists "pub_del" on hoadon for delete using (true);
-      ` })
-    });
+    // Bảng chưa có – tạo mới
+    try {
+      await sbFetch('rpc/exec_sql', {
+        method: 'POST',
+        headers: {},
+        body: JSON.stringify({ query: `
+          create table if not exists hoadon (
+            id text primary key,
+            don_vi text, du_an text, ngay_xuat text,
+            items jsonb, loai_hd text,
+            updated_at timestamptz default now()
+          );
+          create table if not exists duan (
+            id text primary key,
+            data jsonb,
+            updated_at timestamptz default now()
+          );
+          alter table hoadon enable row level security;
+          alter table duan enable row level security;
+          create policy if not exists "pub_sel" on hoadon for select using (true);
+          create policy if not exists "pub_ins" on hoadon for insert with check (true);
+          create policy if not exists "pub_upd" on hoadon for update using (true);
+          create policy if not exists "pub_del" on hoadon for delete using (true);
+          create policy if not exists "pub_sel_da" on duan for select using (true);
+          create policy if not exists "pub_ins_da" on duan for insert with check (true);
+          create policy if not exists "pub_upd_da" on duan for update using (true);
+          create policy if not exists "pub_del_da" on duan for delete using (true);
+        ` })
+      });
+    } catch(e2) { console.warn('Table creation failed:', e2); }
   }
+  // Đồng bộ dự án từ cloud về local khi khởi động
+  syncDuAnFromCloud().catch(()=>{});
 }
 
 // ══════════════════════════════════════════════════════
@@ -1878,6 +1900,11 @@ function getDuAnAll(){
 function setDuAnAll(list){
   localStorage.setItem('bmt_duan', JSON.stringify(list));
 }
+// Gọi hàm này sau mỗi thay đổi dự án để sync cloud
+function saveDuAn(list){
+  saveDuAn(list);
+  syncDuAnToCloud().catch(()=>{});
+}
 function genDAId(){
   return 'DA' + Math.random().toString(36).substring(2,6).toUpperCase();
 }
@@ -1887,7 +1914,7 @@ function taoDuAnMoi(){
   if(!ten){ toast('warn','⚠️ Nhập tên dự án'); return; }
   const list = getDuAnAll();
   list.unshift({ id: genDAId(), ten, hoaDonIds: [], thuChi: [], ts: new Date().toISOString() });
-  setDuAnAll(list);
+  saveDuAn(list);
   document.getElementById('daTenMoi').value='';
   renderDuAnList();
   toast('ok','📁 Đã tạo dự án: ' + ten);
@@ -1958,7 +1985,7 @@ async function renderDuAnList(){
 
 function xoaDuAnTuList(id){
   if(!confirm('Xóa dự án này? (Hóa đơn liên kết không bị xóa)')) return;
-  setDuAnAll(getDuAnAll().filter(d=>d.id!==id));
+  saveDuAn(getDuAnAll().filter(d=>d.id!==id));
   renderDuAnList();
   toast('ok','🗑 Đã xóa dự án');
 }
@@ -2102,7 +2129,7 @@ function themThu(){
   if(!soTien||soTien<=0){ toast('warn','⚠️ Nhập số tiền hợp lệ'); return; }
   da.thu = da.thu || [];
   da.thu.unshift({ id:'thu'+Date.now(), nguoi, soTien, thoiGian, ts:new Date().toISOString() });
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   document.getElementById('tcThuNguoi').value='';
   document.getElementById('tcThuSoTien').value='';
   document.getElementById('tcThuThoiGian').value='';
@@ -2113,7 +2140,7 @@ function xoaThu(id){
   const da = getDuAnAll().find(d=>d.id===_daCurrent);
   if(!da) return;
   da.thu = (da.thu||[]).filter(t=>t.id!==id);
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   renderDuAnDetail(); renderDuAnList();
 }
 
@@ -2128,7 +2155,7 @@ function themChi(){
   if(!soTien||soTien<=0){ toast('warn','⚠️ Nhập số tiền hợp lệ'); return; }
   da.chi = da.chi || [];
   da.chi.unshift({ id:'chi'+Date.now(), nhanVien, mucChi, soTien, daTT:false, thoiGianCK:null, ts:new Date().toISOString() });
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   document.getElementById('tcChiNV').value='';
   document.getElementById('tcChiMuc').value='';
   document.getElementById('tcChiSoTien').value='';
@@ -2139,7 +2166,7 @@ function xoaChi(id){
   const da = getDuAnAll().find(d=>d.id===_daCurrent);
   if(!da) return;
   da.chi = (da.chi||[]).filter(c=>c.id!==id);
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   renderDuAnDetail(); renderDuAnList();
 }
 
@@ -2167,7 +2194,7 @@ function xacNhanCK(){
   if(!da) return;
   const c = (da.chi||[]).find(x=>x.id===_ckTarget.chiId);
   if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
-  setDuAnAll(list);
+  saveDuAn(list);
   closeModal('modalCK');
   renderDuAnDetail(); renderDuAnList();
   toast('ok','✅ Đã xác nhận chuyển khoản!');
@@ -2183,7 +2210,7 @@ function unlinkHD(baseId){
   const da = getDuAnAll().find(d=>d.id===_daCurrent);
   if(!da) return;
   da.hoaDonIds = (da.hoaDonIds||[]).filter(x=>x!==baseId);
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   renderDuAnDetail();
   renderDuAnList();
 }
@@ -2225,7 +2252,7 @@ function toggleLinkHD(baseId){
   const idx = da.hoaDonIds.indexOf(baseId);
   if(idx>=0) da.hoaDonIds.splice(idx,1);
   else da.hoaDonIds.push(baseId);
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   openLinkHDPicker();
   renderDuAnDetail();
   renderDuAnList();
@@ -2234,7 +2261,7 @@ function toggleLinkHD(baseId){
 function xoaDuAn(){
   if(!_daCurrent) return;
   if(!confirm('Xóa dự án này? (Hóa đơn liên kết không bị xóa)')) return;
-  setDuAnAll(getDuAnAll().filter(d=>d.id!==_daCurrent));
+  saveDuAn(getDuAnAll().filter(d=>d.id!==_daCurrent));
   closeModal('modalDA');
   renderDuAnList();
   toast('ok','🗑 Đã xóa dự án');
@@ -2253,7 +2280,7 @@ function saveDAMarkup(){
   const gcVal = document.getElementById('daPctGC').value;
   da.markupLK = lkVal===''? null : parseFloat(lkVal);
   da.markupGC = gcVal===''? null : parseFloat(gcVal);
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
   renderDuAnDetail();
   renderDuAnList();
   toast('ok','⚙️ Đã lưu % riêng cho dự án');
@@ -2487,7 +2514,7 @@ function xacNhanCK(){
       const c = (da.chi||[]).find(x=>x.id===chiId);
       if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
     });
-    setDuAnAll(list);
+    saveDuAn(list);
     toast('ok','✅ Đã thanh toán ' + _ckNVTarget.targets.length + ' khoản cho ' + _ckNVTarget.nvName);
   } else if(_ckNVTarget?.mode === 'single'){
     const da = list.find(d=>d.id===_ckNVTarget.daId);
@@ -2495,7 +2522,7 @@ function xacNhanCK(){
       const c = (da.chi||[]).find(x=>x.id===_ckNVTarget.chiId);
       if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
     }
-    setDuAnAll(list);
+    saveDuAn(list);
     toast('ok','✅ Đã xác nhận chuyển khoản!');
   } else if(_ckTarget){
     // Fallback: gọi từ trong modalDA
@@ -2504,7 +2531,7 @@ function xacNhanCK(){
       const c = (da.chi||[]).find(x=>x.id===_ckTarget.chiId);
       if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
     }
-    setDuAnAll(list);
+    saveDuAn(list);
     toast('ok','✅ Đã xác nhận chuyển khoản!');
   }
 
@@ -2547,6 +2574,53 @@ function openQRModal(nvName, amount){
     <div style="font-size:.7rem;color:var(--txt3);text-align:center;margin-top:4px">Nội dung: ${escH(addInfo)}</div>
   `;
   document.getElementById('modalQR').classList.add('show');
+}
+
+// ══════════════════════════════════════════════════════
+// ĐỒNG BỘ DỰ ÁN - SUPABASE
+// ══════════════════════════════════════════════════════
+// Dùng 1 row duy nhất id='bmt_duan' lưu toàn bộ JSON dự án
+const DA_ROW_ID = 'bmt_duan_v1';
+
+async function syncDuAnToCloud() {
+  const list = getDuAnAll();
+  try {
+    await sbFetch('duan?id=eq.' + DA_ROW_ID, { method:'DELETE', prefer:'return=minimal' });
+    await sbFetch('duan', {
+      method: 'POST',
+      body: JSON.stringify({ id: DA_ROW_ID, data: list, updated_at: new Date().toISOString() }),
+      prefer: 'return=minimal'
+    });
+    return true;
+  } catch(e) {
+    console.warn('Sync duan to cloud failed:', e);
+    return false;
+  }
+}
+
+async function syncDuAnFromCloud() {
+  try {
+    const rows = await sbFetch('duan?id=eq.' + DA_ROW_ID);
+    if (rows && rows.length && rows[0].data) {
+      const cloudList = rows[0].data;
+      const localList = getDuAnAll();
+      // Merge: cloud thắng nếu updated_at mới hơn, hoặc dự án chỉ có trên cloud
+      const merged = [...cloudList];
+      localList.forEach(lda => {
+        if (!merged.find(c => c.id === lda.id)) merged.push(lda);
+      });
+      setDuAnAll(merged);
+      console.log('Synced', merged.length, 'projects from cloud');
+    }
+  } catch(e) {
+    console.warn('Sync duan from cloud failed:', e);
+  }
+}
+
+// Đồng bộ 2 chiều: sau mỗi thay đổi dự án
+async function saveDuAnAndSync(list) {
+  saveDuAn(list);
+  syncDuAnToCloud().catch(()=>{});
 }
 
 </script>
