@@ -963,10 +963,10 @@ function loadBG(){
     const e=JSON.parse(localStorage.getItem('bmt_bg')||'{}');
     const deleted=JSON.parse(localStorage.getItem('bmt_bg_deleted')||'[]');
     if(synced){
-      // Đã sync cloud → chỉ dùng extra, không merge DEFAULT
-      return Object.assign({},e);
+      // Cloud-only: extra chứa toàn bộ danh sách hiện tại
+      return Object.assign({}, e);
     } else {
-      // Chưa sync lần nào → dùng DEFAULT (lần đầu)
+      // Chưa sync lần nào: dùng DEFAULT + extra - deleted
       const merged=Object.assign({},DEFAULT_BANG_GIA,e);
       deleted.forEach(k=>delete merged[k]);
       return merged;
@@ -974,16 +974,15 @@ function loadBG(){
   }catch{return{...DEFAULT_BANG_GIA};}
 }
 function saveBG(bg){
+  // Cloud-only: lưu toàn bộ BG hiện tại vào extra, deleted = key DEFAULT nào bị bỏ
   const extra={};
   const deleted=[];
-  for(const k in bg){
-    if(!(k in DEFAULT_BANG_GIA)) extra[k]=bg[k];
-  }
+  for(const k in bg){ extra[k]=bg[k]; }
   for(const k in DEFAULT_BANG_GIA){
     if(!(k in bg)) deleted.push(k);
   }
-  localStorage.setItem('bmt_bg',JSON.stringify(extra));
-  localStorage.setItem('bmt_bg_deleted',JSON.stringify(deleted));
+  localStorage.setItem('bmt_bg', JSON.stringify(extra));
+  localStorage.setItem('bmt_bg_deleted', JSON.stringify(deleted));
 }
 function getDVList(){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');return[...DEFAULT_DON_VI,...e.filter(x=>!DEFAULT_DON_VI.includes(x))];}catch{return[...DEFAULT_DON_VI];}}
 function saveDV(n){try{const e=JSON.parse(localStorage.getItem('bmt_dv')||'[]');if(!e.includes(n)){e.push(n);localStorage.setItem('bmt_dv',JSON.stringify(e));}}catch{}}
@@ -1749,12 +1748,11 @@ function bgSaveAll() {
     return;
   }
 
-  // Gộp với DEFAULT (không ghi đè DEFAULT nếu không cần)
   BG = newBG;
-  saveBG(BG);
+  saveBG(BG); // saveBG sẽ tự push lên cloud qua patch
   bgDirty.clear();
   document.querySelectorAll('#bgBody tr').forEach(r => r.classList.remove('bg-dirty','bg-new-row'));
-  toast('ok', '✅ Đã lưu bảng giá (' + Object.keys(BG).length + ' mặt hàng)');
+  toast('ok', '✅ Đã lưu & đang đẩy lên cloud (' + Object.keys(BG).length + ' mặt hàng)');
   document.getElementById('bgCount').value = Object.keys(BG).length + ' mặt hàng';
 }
 
