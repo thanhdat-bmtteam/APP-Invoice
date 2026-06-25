@@ -349,6 +349,19 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
 .da-row-del{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:.85rem;padding:2px 6px}
 .link-hd-row{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border-radius:8px;padding:8px 10px;font-size:.82rem;cursor:pointer}
 .link-hd-row.linked{opacity:.5}
+
+/* ── THU CHI ── */
+.tc-thu-row{display:flex;align-items:flex-start;justify-content:space-between;background:rgba(6,214,160,.07);border-left:3px solid var(--green);border-radius:8px;padding:8px 10px;font-size:.8rem;gap:8px}
+.tc-chi-row{display:flex;align-items:flex-start;justify-content:space-between;background:rgba(230,57,70,.06);border-left:3px solid var(--danger);border-radius:8px;padding:8px 10px;font-size:.8rem;gap:8px}
+.tc-chi-row.da-tt{opacity:.6;border-left-color:var(--txt3)}
+.luong-nv-card{background:var(--s2);border-radius:10px;padding:12px 14px}
+.luong-nv-name{font-weight:800;font-size:.92rem;margin-bottom:6px}
+.luong-nv-total{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:1rem;color:var(--green)}
+.luong-nv-total.chua-tt{color:var(--danger)}
+.luong-muc-row{display:flex;justify-content:space-between;font-size:.78rem;padding:4px 0;border-bottom:1px solid var(--border)}
+.luong-muc-row:last-child{border-bottom:none}
+.ck-badge{font-size:.68rem;background:var(--green);color:#fff;padding:1px 6px;border-radius:4px;font-weight:700}
+.chua-ck-badge{font-size:.68rem;background:var(--danger);color:#fff;padding:1px 6px;border-radius:4px;font-weight:700}
 </style>
 </head>
 <body>
@@ -678,21 +691,70 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
         </div>
       </div>
 
-      <!-- Thu chi tự do -->
+      <!-- Thu/Chi tabs -->
       <div class="card" style="gap:8px">
-        <div class="card-title" style="margin:0">💵 Thu / Chi khác</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <select id="tcLoai" style="flex:0 0 90px">
-            <option value="thu">Thu</option>
-            <option value="chi" selected>Chi</option>
-          </select>
-          <input id="tcMoTa" type="text" placeholder="Mô tả (vd: vận chuyển, công lắp đặt...)" style="flex:1;min-width:140px">
-          <input id="tcSoTien" type="number" min="0" placeholder="Số tiền" style="flex:0 0 110px">
-          <button class="btn btn-accent btn-sm" onclick="themThuChi()">➕</button>
+        <!-- Tab switch -->
+        <div style="display:flex;gap:0;border-radius:8px;overflow:hidden;border:1.5px solid var(--border)">
+          <button id="tcTabThuBtn" onclick="switchTCTab('thu')"
+            style="flex:1;padding:7px;font-size:.82rem;font-weight:700;border:none;cursor:pointer;background:var(--green);color:#fff;border-right:1px solid var(--border)">
+            💰 Thu tiền
+          </button>
+          <button id="tcTabChiBtn" onclick="switchTCTab('chi')"
+            style="flex:1;padding:7px;font-size:.82rem;font-weight:700;border:none;cursor:pointer;background:var(--s2);color:var(--txt2)">
+            💸 Chi lương
+          </button>
         </div>
-        <div id="daTCList" style="display:flex;flex-direction:column;gap:6px"></div>
-        <div id="daTCEmpty" style="display:none;text-align:center;padding:14px;color:var(--txt3);font-size:.82rem">
-          Chưa có khoản thu/chi nào
+
+        <!-- Panel THU -->
+        <div id="tcPanelThu">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <input id="tcThuNguoi" type="text" placeholder="Nhận CK từ (Họ tên)..." style="flex:1;min-width:140px">
+              <input id="tcThuSoTien" type="number" min="0" placeholder="Số tiền (vnđ)" style="flex:0 0 130px">
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="tcThuThoiGian" type="datetime-local" style="flex:1">
+              <button class="btn btn-green btn-sm" onclick="themThu()">➕ Thêm</button>
+            </div>
+          </div>
+          <div id="daThuList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+          <div id="daThuEmpty" style="display:none;text-align:center;padding:12px;color:var(--txt3);font-size:.82rem">Chưa có khoản thu nào</div>
+        </div>
+
+        <!-- Panel CHI -->
+        <div id="tcPanelChi" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <select id="tcChiNV" style="flex:1;min-width:120px">
+                <option value="">-- Chọn nhân viên --</option>
+                <option>Đỗ Thành Đạt</option>
+                <option>Phạm Trần Đăng Khoa</option>
+                <option>Huỳnh Công Hiếu</option>
+                <option>Nguyễn Lê Hoài Nam</option>
+                <option>Lê Thị Thanh Bình</option>
+                <option>Nguyễn Nhựt Duy</option>
+              </select>
+              <select id="tcChiMuc" style="flex:1;min-width:120px">
+                <option value="">-- Mục chi --</option>
+                <option>Ý tưởng</option>
+                <option>Thiết kế mạch</option>
+                <option>Hàn mạch</option>
+                <option>Thiết kế mô hình</option>
+                <option>Lắp ráp mô hình</option>
+                <option>Đi điện mô hình</option>
+                <option>Viết chương trình</option>
+                <option>Viết báo cáo</option>
+                <option>Thiết kế Poster</option>
+                <option>Tiền xăng/Đi giao dự án</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:6px">
+              <input id="tcChiSoTien" type="number" min="0" placeholder="Số tiền (vnđ)" style="flex:1">
+              <button class="btn btn-danger btn-sm" onclick="themChi()">➕ Thêm</button>
+            </div>
+          </div>
+          <div id="daChiList" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+          <div id="daChiEmpty" style="display:none;text-align:center;padding:12px;color:var(--txt3);font-size:.82rem">Chưa có khoản chi nào</div>
         </div>
       </div>
     </div>
@@ -730,7 +792,8 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-danger btn-md" onclick="xoaDuAn()">🗑 Xóa dự án</button>
+      <button class="btn btn-danger btn-md" onclick="xoaDuAn()">🗑 Xóa</button>
+      <button class="btn btn-violet btn-md" onclick="openBangLuong()">👥 Bảng lương</button>
       <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalDA')">Đóng</button>
     </div>
   </div>
@@ -744,6 +807,38 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
     <div id="linkHDList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;max-height:55vh;overflow-y:auto"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalLinkHD')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── MODAL BẢNG LƯƠNG TỔNG HỢP ── -->
+<div class="modal-overlay" id="modalLuong">
+  <div class="modal" style="max-height:85vh">
+    <div class="modal-handle"></div>
+    <div class="modal-title">👥 Bảng lương nhân viên</div>
+    <div style="font-size:.75rem;color:var(--txt3);margin-bottom:10px" id="luongDuAnName"></div>
+    <div id="luongTable" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalLuong')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL XÁC NHẬN ĐÃ CHUYỂN KHOẢN ── -->
+<div class="modal-overlay" id="modalCK">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✅ Xác nhận đã chuyển khoản</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:.85rem;color:var(--txt2);margin-bottom:4px">Nhân viên: <strong id="ckNVName"></strong></div>
+      <div style="font-size:.85rem;color:var(--txt2);margin-bottom:12px">Tổng: <strong id="ckAmount" style="color:var(--green)"></strong></div>
+      <label style="font-size:.82rem;color:var(--txt2);display:block;margin-bottom:6px">Thời gian chuyển khoản:</label>
+      <input id="ckThoiGian" type="datetime-local" style="width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalCK')">Hủy</button>
+      <button class="btn btn-green btn-md" style="flex:1" onclick="xacNhanCK()">✅ Xác nhận đã CK</button>
     </div>
   </div>
 </div>
@@ -1772,10 +1867,8 @@ function _calcDuAnTotals(da, allInvoices){
     if (hdG && hdG.items) tongChi += hdG.items.reduce((s,it)=>s+calcT(it),0);
     if (hdB && hdB.items) tongThu += hdB.items.reduce((s,it)=>s+calcTBanWithMarkup(it,m),0);
   });
-  (da.thuChi||[]).forEach(tc => {
-    if (tc.loai === 'thu') tongThu += (tc.soTien||0);
-    else tongChi += (tc.soTien||0);
-  });
+  (da.thu||[]).forEach(t => tongThu += (t.soTien||0));
+  (da.chi||[]).forEach(c => tongChi += (c.soTien||0));
   return { tongThu, tongChi, loiNhuan: tongThu - tongChi };
 }
 
@@ -1870,54 +1963,211 @@ async function renderDuAnDetail(){
     }).join('');
   }
 
-  // Thu chi
-  const tcList = document.getElementById('daTCList');
-  const tcEmpty = document.getElementById('daTCEmpty');
-  if (!(da.thuChi||[]).length){
-    tcList.innerHTML=''; tcEmpty.style.display='block';
+  // Thu chi - render riêng 2 list
+  renderThuList(da);
+  renderChiList(da);
+}
+
+
+// ══════════════════════════════════════════════════════
+// THU / CHI MỚI
+// ══════════════════════════════════════════════════════
+let _tcTab = 'thu';
+let _ckTarget = null; // { daId, chiId, nvName, total }
+
+function switchTCTab(tab){
+  _tcTab = tab;
+  const isThu = tab === 'thu';
+  document.getElementById('tcTabThuBtn').style.background = isThu ? 'var(--green)' : 'var(--s2)';
+  document.getElementById('tcTabThuBtn').style.color = isThu ? '#fff' : 'var(--txt2)';
+  document.getElementById('tcTabChiBtn').style.background = !isThu ? 'var(--danger)' : 'var(--s2)';
+  document.getElementById('tcTabChiBtn').style.color = !isThu ? '#fff' : 'var(--txt2)';
+  document.getElementById('tcPanelThu').style.display = isThu ? '' : 'none';
+  document.getElementById('tcPanelChi').style.display = !isThu ? '' : 'none';
+}
+
+function renderThuList(da){
+  const list = da.thu || [];
+  const el = document.getElementById('daThuList');
+  const empty = document.getElementById('daThuEmpty');
+  if(!list.length){ el.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  el.innerHTML = list.map(t => `
+    <div class="tc-thu-row">
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1">
+        <div style="font-weight:700">${escH(t.nguoi||'—')}</div>
+        <div style="font-size:.7rem;color:var(--txt3)">${t.thoiGian ? fmtDT(t.thoiGian) : 'Chưa có thời gian'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)">+${fmtN(t.soTien)}</span>
+        <button class="da-row-del" onclick="xoaThu('${t.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderChiList(da){
+  const list = da.chi || [];
+  const el = document.getElementById('daChiList');
+  const empty = document.getElementById('daChiEmpty');
+  if(!list.length){ el.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  el.innerHTML = list.map(c => {
+    const ttBadge = c.daTT
+      ? `<span class="ck-badge">✅ CK ${fmtDT(c.thoiGianCK)}</span>`
+      : `<button class="chua-ck-badge" onclick="openModalCK('${c.id}')">Chưa TT</button>`;
+    return `<div class="tc-chi-row ${c.daTT?'da-tt':''}">
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <div style="font-weight:700">${escH(c.nhanVien||'—')} <span style="color:var(--txt3);font-weight:400">· ${escH(c.mucChi||'—')}</span></div>
+        <div>${ttBadge}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--danger)">-${fmtN(c.soTien)}</span>
+        <button class="da-row-del" onclick="xoaChi('${c.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtDT(iso){
+  try{
+    const d=new Date(iso);
+    return d.toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }catch{return iso||''}
+}
+
+function themThu(){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da) return;
+  const nguoi = document.getElementById('tcThuNguoi').value.trim();
+  const soTien = parseFloat(document.getElementById('tcThuSoTien').value);
+  const thoiGian = document.getElementById('tcThuThoiGian').value;
+  if(!nguoi){ toast('warn','⚠️ Nhập họ tên người chuyển'); return; }
+  if(!soTien||soTien<=0){ toast('warn','⚠️ Nhập số tiền hợp lệ'); return; }
+  da.thu = da.thu || [];
+  da.thu.unshift({ id:'thu'+Date.now(), nguoi, soTien, thoiGian, ts:new Date().toISOString() });
+  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  document.getElementById('tcThuNguoi').value='';
+  document.getElementById('tcThuSoTien').value='';
+  document.getElementById('tcThuThoiGian').value='';
+  renderDuAnDetail(); renderDuAnList();
+}
+
+function xoaThu(id){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da) return;
+  da.thu = (da.thu||[]).filter(t=>t.id!==id);
+  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  renderDuAnDetail(); renderDuAnList();
+}
+
+function themChi(){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da) return;
+  const nhanVien = document.getElementById('tcChiNV').value;
+  const mucChi = document.getElementById('tcChiMuc').value;
+  const soTien = parseFloat(document.getElementById('tcChiSoTien').value);
+  if(!nhanVien){ toast('warn','⚠️ Chọn nhân viên'); return; }
+  if(!mucChi){ toast('warn','⚠️ Chọn mục chi'); return; }
+  if(!soTien||soTien<=0){ toast('warn','⚠️ Nhập số tiền hợp lệ'); return; }
+  da.chi = da.chi || [];
+  da.chi.unshift({ id:'chi'+Date.now(), nhanVien, mucChi, soTien, daTT:false, thoiGianCK:null, ts:new Date().toISOString() });
+  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  document.getElementById('tcChiNV').value='';
+  document.getElementById('tcChiMuc').value='';
+  document.getElementById('tcChiSoTien').value='';
+  renderDuAnDetail(); renderDuAnList();
+}
+
+function xoaChi(id){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da) return;
+  da.chi = (da.chi||[]).filter(c=>c.id!==id);
+  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
+  renderDuAnDetail(); renderDuAnList();
+}
+
+function openModalCK(chiId){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da) return;
+  const c = (da.chi||[]).find(x=>x.id===chiId);
+  if(!c) return;
+  _ckTarget = { daId: da.id, chiId };
+  document.getElementById('ckNVName').textContent = c.nhanVien + ' — ' + c.mucChi;
+  document.getElementById('ckAmount').textContent = fmtN(c.soTien) + ' vnđ';
+  // Set giờ hiện tại làm mặc định
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('ckThoiGian').value = now.toISOString().slice(0,16);
+  document.getElementById('modalCK').classList.add('show');
+}
+
+function xacNhanCK(){
+  if(!_ckTarget) return;
+  const thoiGianCK = document.getElementById('ckThoiGian').value;
+  if(!thoiGianCK){ toast('warn','⚠️ Chọn thời gian chuyển khoản'); return; }
+  const list = getDuAnAll();
+  const da = list.find(d=>d.id===_ckTarget.daId);
+  if(!da) return;
+  const c = (da.chi||[]).find(x=>x.id===_ckTarget.chiId);
+  if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
+  setDuAnAll(list);
+  closeModal('modalCK');
+  renderDuAnDetail(); renderDuAnList();
+  toast('ok','✅ Đã xác nhận chuyển khoản!');
+}
+
+// ── BẢNG LƯƠNG TỔNG HỢP ──────────────────────────────────────────────────────
+function openBangLuong(){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da){ return; }
+  document.getElementById('luongDuAnName').textContent = 'Dự án: ' + da.ten;
+
+  // Nhóm theo nhân viên
+  const nvMap = {};
+  (da.chi||[]).forEach(c => {
+    if(!nvMap[c.nhanVien]) nvMap[c.nhanVien] = { mucs:[], tongChua:0, tongDaTT:0 };
+    const nv = nvMap[c.nhanVien];
+    nv.mucs.push(c);
+    if(c.daTT) nv.tongDaTT += (c.soTien||0);
+    else nv.tongChua += (c.soTien||0);
+  });
+
+  const el = document.getElementById('luongTable');
+  const nvList = Object.keys(nvMap);
+  if(!nvList.length){
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--txt3)">Chưa có khoản chi nào</div>';
   } else {
-    tcEmpty.style.display='none';
-    tcList.innerHTML = da.thuChi.map(tc => {
-      const color = tc.loai==='thu' ? 'var(--green)' : 'var(--danger)';
-      const sign = tc.loai==='thu' ? '+' : '-';
-      return `<div class="da-tc-row tc-${tc.loai}">
-        <div style="display:flex;flex-direction:column;gap:2px">
-          <div style="font-weight:600">${escH(tc.moTa||'(không có mô tả)')}</div>
-          <div style="font-size:.7rem;color:var(--txt3)">${tc.loai==='thu'?'Thu':'Chi'}</div>
+    el.innerHTML = nvList.map(nv => {
+      const d = nvMap[nv];
+      const tongAll = d.tongDaTT + d.tongChua;
+      return `<div class="luong-nv-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="luong-nv-name">👤 ${escH(nv)}</div>
+          <div style="text-align:right">
+            <div class="luong-nv-total">${fmtN(tongAll)} vnđ</div>
+            <div style="font-size:.7rem;margin-top:2px">
+              <span style="color:var(--green)">✅ Đã TT: ${fmtN(d.tongDaTT)}</span>
+              ${d.tongChua>0?`<span style="color:var(--danger);margin-left:8px">⏳ Chưa: ${fmtN(d.tongChua)}</span>`:''}
+            </div>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${color}">${sign}${fmtN(tc.soTien)}</span>
-          <button class="da-row-del" onclick="xoaThuChi('${tc.id}')">✕</button>
+        <div>${d.mucs.map(c=>`
+          <div class="luong-muc-row">
+            <span style="color:var(--txt2)">${escH(c.mucChi)}</span>
+            <span style="display:flex;align-items:center;gap:6px">
+              <span style="font-weight:700">${fmtN(c.soTien)}</span>
+              ${c.daTT
+                ? `<span class="ck-badge">✅ ${fmtDT(c.thoiGianCK)}</span>`
+                : `<button class="chua-ck-badge" onclick="openModalCK('${c.id}')">Chưa TT</button>`}
+            </span>
+          </div>`).join('')}
         </div>
       </div>`;
     }).join('');
   }
+  document.getElementById('modalLuong').classList.add('show');
 }
 
-function themThuChi(){
-  const da = getDuAnAll().find(d=>d.id===_daCurrent);
-  if(!da) return;
-  const loai = document.getElementById('tcLoai').value;
-  const moTa = document.getElementById('tcMoTa').value.trim();
-  const soTien = parseFloat(document.getElementById('tcSoTien').value);
-  if(!soTien || soTien<=0){ toast('warn','⚠️ Nhập số tiền hợp lệ'); return; }
-  da.thuChi = da.thuChi || [];
-  da.thuChi.unshift({ id: 'tc'+Date.now(), loai, moTa, soTien, ts: new Date().toISOString() });
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
-  document.getElementById('tcMoTa').value='';
-  document.getElementById('tcSoTien').value='';
-  renderDuAnDetail();
-  renderDuAnList();
-}
-
-function xoaThuChi(tcId){
-  const da = getDuAnAll().find(d=>d.id===_daCurrent);
-  if(!da) return;
-  da.thuChi = (da.thuChi||[]).filter(t=>t.id!==tcId);
-  setDuAnAll(getDuAnAll().map(d=>d.id===da.id?da:d));
-  renderDuAnDetail();
-  renderDuAnList();
-}
 
 function unlinkHD(baseId){
   const da = getDuAnAll().find(d=>d.id===_daCurrent);
