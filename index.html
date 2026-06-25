@@ -362,6 +362,17 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
 .luong-muc-row:last-child{border-bottom:none}
 .ck-badge{font-size:.68rem;background:var(--green);color:#fff;padding:1px 6px;border-radius:4px;font-weight:700}
 .chua-ck-badge{font-size:.68rem;background:var(--danger);color:#fff;padding:1px 6px;border-radius:4px;font-weight:700}
+
+/* ── TRANG NHÂN VIÊN ── */
+.nv-card{background:var(--s1);border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
+.nv-card-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--s2);border-bottom:1px solid var(--border)}
+.nv-card-name{font-weight:800;font-size:.95rem}
+.nv-card-sum{text-align:right}
+.nv-card-body{padding:0 14px 10px}
+.nv-chi-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.nv-chi-row:last-child{border-bottom:none}
+.nv-chi-da{project:all;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;display:flex;justify-content:space-between}
+.nv-da-label{font-size:.68rem;color:var(--accent);font-weight:700;padding:1px 6px;background:rgba(0,180,216,.12);border-radius:4px;margin-right:6px}
 </style>
 </head>
 <body>
@@ -390,6 +401,7 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
   </div>
   <div class="tab" id="tab2" onclick="switchTab(2);renderBangGia()">💰 Bảng giá</div>
   <div class="tab" id="tab3" onclick="switchTab(3);renderDuAnList()">📁 Dự án</div>
+  <div class="tab" id="tab4" onclick="switchTab(4);renderNhanVienPage()">👥 Nhân viên</div>
 </nav>
 
 <!-- ══════════════════════════════════════════ -->
@@ -561,6 +573,46 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
   <div id="daEmpty" style="display:none;text-align:center;padding:40px;color:var(--txt3)">
     <div style="font-size:2.5rem;margin-bottom:8px">📁</div>
     <div>Chưa có dự án nào. Tạo dự án để nhóm hóa đơn và theo dõi thu chi.</div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════ -->
+<!-- PANEL 4: NHÂN VIÊN / BẢNG LƯƠNG           -->
+<!-- ══════════════════════════════════════════ -->
+<div class="panel" id="panel4">
+
+  <div class="card" style="gap:10px">
+    <div class="card-title">👥 Bảng lương tổng hợp</div>
+    <!-- Filter -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="nvFilter" style="flex:1;min-width:140px" onchange="renderNhanVienPage()">
+        <option value="">Tất cả nhân viên</option>
+        <option>Đỗ Thành Đạt</option>
+        <option>Phạm Trần Đăng Khoa</option>
+        <option>Huỳnh Công Hiếu</option>
+        <option>Nguyễn Lê Hoài Nam</option>
+        <option>Lê Thị Thanh Bình</option>
+        <option>Nguyễn Nhựt Duy</option>
+      </select>
+      <select id="nvTTFilter" style="flex:0 0 130px" onchange="renderNhanVienPage()">
+        <option value="">Tất cả trạng thái</option>
+        <option value="chua">Chưa thanh toán</option>
+        <option value="da">Đã thanh toán</option>
+      </select>
+    </div>
+    <!-- Tổng chưa TT -->
+    <div id="nvTongChuaTT" style="background:rgba(230,57,70,.08);border:1px solid rgba(230,57,70,.25);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:.82rem;color:var(--txt2)">⏳ Tổng chưa thanh toán:</span>
+      <span id="nvTongChuaTTVal" style="font-family:'JetBrains Mono',monospace;font-weight:800;color:var(--danger)">0 vnđ</span>
+    </div>
+  </div>
+
+  <div id="nvList" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div id="nvEmpty" style="display:none;text-align:center;padding:40px;color:var(--txt3)">
+    <div style="font-size:2.5rem;margin-bottom:8px">👥</div>
+    <div>Chưa có khoản chi lương nào</div>
   </div>
 
 </div>
@@ -793,7 +845,6 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
 
     <div class="modal-actions">
       <button class="btn btn-danger btn-md" onclick="xoaDuAn()">🗑 Xóa</button>
-      <button class="btn btn-violet btn-md" onclick="openBangLuong()">👥 Bảng lương</button>
       <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalDA')">Đóng</button>
     </div>
   </div>
@@ -811,19 +862,6 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
   </div>
 </div>
 
-
-<!-- ── MODAL BẢNG LƯƠNG TỔNG HỢP ── -->
-<div class="modal-overlay" id="modalLuong">
-  <div class="modal" style="max-height:85vh">
-    <div class="modal-handle"></div>
-    <div class="modal-title">👥 Bảng lương nhân viên</div>
-    <div style="font-size:.75rem;color:var(--txt3);margin-bottom:10px" id="luongDuAnName"></div>
-    <div id="luongTable" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost btn-md" style="flex:1" onclick="closeModal('modalLuong')">Đóng</button>
-    </div>
-  </div>
-</div>
 
 <!-- ── MODAL XÁC NHẬN ĐÃ CHUYỂN KHOẢN ── -->
 <div class="modal-overlay" id="modalCK">
@@ -2116,57 +2154,10 @@ function xacNhanCK(){
   toast('ok','✅ Đã xác nhận chuyển khoản!');
 }
 
+
+
 // ── BẢNG LƯƠNG TỔNG HỢP ──────────────────────────────────────────────────────
-function openBangLuong(){
-  const da = getDuAnAll().find(d=>d.id===_daCurrent);
-  if(!da){ return; }
-  document.getElementById('luongDuAnName').textContent = 'Dự án: ' + da.ten;
 
-  // Nhóm theo nhân viên
-  const nvMap = {};
-  (da.chi||[]).forEach(c => {
-    if(!nvMap[c.nhanVien]) nvMap[c.nhanVien] = { mucs:[], tongChua:0, tongDaTT:0 };
-    const nv = nvMap[c.nhanVien];
-    nv.mucs.push(c);
-    if(c.daTT) nv.tongDaTT += (c.soTien||0);
-    else nv.tongChua += (c.soTien||0);
-  });
-
-  const el = document.getElementById('luongTable');
-  const nvList = Object.keys(nvMap);
-  if(!nvList.length){
-    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--txt3)">Chưa có khoản chi nào</div>';
-  } else {
-    el.innerHTML = nvList.map(nv => {
-      const d = nvMap[nv];
-      const tongAll = d.tongDaTT + d.tongChua;
-      return `<div class="luong-nv-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <div class="luong-nv-name">👤 ${escH(nv)}</div>
-          <div style="text-align:right">
-            <div class="luong-nv-total">${fmtN(tongAll)} vnđ</div>
-            <div style="font-size:.7rem;margin-top:2px">
-              <span style="color:var(--green)">✅ Đã TT: ${fmtN(d.tongDaTT)}</span>
-              ${d.tongChua>0?`<span style="color:var(--danger);margin-left:8px">⏳ Chưa: ${fmtN(d.tongChua)}</span>`:''}
-            </div>
-          </div>
-        </div>
-        <div>${d.mucs.map(c=>`
-          <div class="luong-muc-row">
-            <span style="color:var(--txt2)">${escH(c.mucChi)}</span>
-            <span style="display:flex;align-items:center;gap:6px">
-              <span style="font-weight:700">${fmtN(c.soTien)}</span>
-              ${c.daTT
-                ? `<span class="ck-badge">✅ ${fmtDT(c.thoiGianCK)}</span>`
-                : `<button class="chua-ck-badge" onclick="openModalCK('${c.id}')">Chưa TT</button>`}
-            </span>
-          </div>`).join('')}
-        </div>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('modalLuong').classList.add('show');
-}
 
 
 function unlinkHD(baseId){
@@ -2304,6 +2295,183 @@ async function xuatTongDuAn(format){
     document.getElementById('pctLK').value = backup.pctLK;
     document.getElementById('pctGC').value = backup.pctGC;
   }
+}
+
+// ══════════════════════════════════════════════════════
+// TRANG NHÂN VIÊN - BẢNG LƯƠNG TỔNG HỢP
+// ══════════════════════════════════════════════════════
+const DS_NHANVIEN = [
+  'Đỗ Thành Đạt','Phạm Trần Đăng Khoa','Huỳnh Công Hiếu',
+  'Nguyễn Lê Hoài Nam','Lê Thị Thanh Bình','Nguyễn Nhựt Duy'
+];
+let _ckNVTarget = null; // { daId, chiId }
+
+function renderNhanVienPage(){
+  const filterNV = document.getElementById('nvFilter')?.value || '';
+  const filterTT = document.getElementById('nvTTFilter')?.value || '';
+  const allDA = getDuAnAll();
+
+  // Gom tất cả khoản chi theo nhân viên, kèm tên dự án
+  const nvMap = {};
+  DS_NHANVIEN.forEach(nv => nvMap[nv] = []);
+
+  allDA.forEach(da => {
+    (da.chi||[]).forEach(c => {
+      if(!nvMap[c.nhanVien]) nvMap[c.nhanVien] = [];
+      nvMap[c.nhanVien].push({ ...c, daTen: da.ten, daId: da.id });
+    });
+  });
+
+  // Tính tổng chưa TT toàn bộ
+  let tongChuaTT = 0;
+  Object.values(nvMap).forEach(list =>
+    list.forEach(c => { if(!c.daTT) tongChuaTT += (c.soTien||0); })
+  );
+  document.getElementById('nvTongChuaTTVal').textContent = fmtN(tongChuaTT) + ' vnđ';
+
+  const el = document.getElementById('nvList');
+  const empty = document.getElementById('nvEmpty');
+
+  // Filter nhân viên
+  let nvList = filterNV ? [filterNV] : DS_NHANVIEN;
+
+  const cards = nvList.map(nv => {
+    let chiList = nvMap[nv] || [];
+
+    // Filter trạng thái
+    if(filterTT === 'chua') chiList = chiList.filter(c => !c.daTT);
+    if(filterTT === 'da')   chiList = chiList.filter(c => c.daTT);
+
+    if(!chiList.length) return '';
+
+    const tongChua = chiList.filter(c=>!c.daTT).reduce((s,c)=>s+(c.soTien||0),0);
+    const tongDa   = chiList.filter(c=>c.daTT).reduce((s,c)=>s+(c.soTien||0),0);
+    const tongAll  = tongChua + tongDa;
+
+    const chiRows = chiList.map(c => {
+      const ttEl = c.daTT
+        ? `<span class="ck-badge">✅ ${fmtDT(c.thoiGianCK)}</span>`
+        : `<button class="chua-ck-badge" onclick="openModalCKNV('${c.daId}','${c.id}')">Chưa TT</button>`;
+      return `<div class="nv-chi-row">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div><span class="nv-da-label">${escH(c.daTen)}</span>${escH(c.mucChi)}</div>
+          <div>${ttEl}</div>
+        </div>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${c.daTT?'var(--txt3)':'var(--danger)'}">
+          ${fmtN(c.soTien)}
+        </span>
+      </div>`;
+    }).join('');
+
+    // Nút TT tất cả chưa TT của NV này
+    const btnTTAll = tongChua > 0
+      ? `<button class="btn btn-green btn-sm" onclick="openModalCKNVAll('${nv}')">✅ TT tất cả (${fmtN(tongChua)})</button>`
+      : `<span style="font-size:.75rem;color:var(--green)">✅ Đã TT hết</span>`;
+
+    return `<div class="nv-card">
+      <div class="nv-card-header">
+        <div class="nv-card-name">👤 ${escH(nv)}</div>
+        <div class="nv-card-sum">
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.95rem">${fmtN(tongAll)} vnđ</div>
+          <div style="font-size:.7rem;margin-top:2px;display:flex;gap:8px;justify-content:flex-end">
+            ${tongDa>0?`<span style="color:var(--green)">✅ ${fmtN(tongDa)}</span>`:''}
+            ${tongChua>0?`<span style="color:var(--danger)">⏳ ${fmtN(tongChua)}</span>`:''}
+          </div>
+        </div>
+      </div>
+      <div class="nv-card-body">
+        <div style="padding:8px 0">${chiRows}</div>
+        <div style="padding-top:4px">${btnTTAll}</div>
+      </div>
+    </div>`;
+  }).filter(Boolean);
+
+  if(!cards.length){
+    el.innerHTML=''; empty.style.display='block';
+  } else {
+    empty.style.display='none';
+    el.innerHTML = cards.join('');
+  }
+}
+
+// Mở modal CK cho 1 khoản chi từ trang NV
+function openModalCKNV(daId, chiId){
+  const da = getDuAnAll().find(d=>d.id===daId);
+  if(!da) return;
+  const c = (da.chi||[]).find(x=>x.id===chiId);
+  if(!c) return;
+  _ckNVTarget = { daId, chiId, mode:'single' };
+  document.getElementById('ckNVName').textContent = c.nhanVien + ' — ' + c.mucChi + ' (' + da.ten + ')';
+  document.getElementById('ckAmount').textContent = fmtN(c.soTien) + ' vnđ';
+  const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+  document.getElementById('ckThoiGian').value = now.toISOString().slice(0,16);
+  document.getElementById('modalCK').classList.add('show');
+}
+
+// Mở modal CK để TT tất cả khoản chưa TT của 1 NV (gộp nhiều dự án)
+function openModalCKNVAll(nvName){
+  const allDA = getDuAnAll();
+  let tongChua = 0;
+  const targets = [];
+  allDA.forEach(da => {
+    (da.chi||[]).forEach(c => {
+      if(c.nhanVien===nvName && !c.daTT){
+        tongChua += (c.soTien||0);
+        targets.push({ daId: da.id, chiId: c.id });
+      }
+    });
+  });
+  if(!targets.length) return;
+  _ckNVTarget = { targets, mode:'all', nvName };
+  document.getElementById('ckNVName').textContent = nvName + ' — Tất cả khoản chưa TT';
+  document.getElementById('ckAmount').textContent = fmtN(tongChua) + ' vnđ (' + targets.length + ' khoản)';
+  const now = new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+  document.getElementById('ckThoiGian').value = now.toISOString().slice(0,16);
+  document.getElementById('modalCK').classList.add('show');
+}
+
+// Override xacNhanCK để xử lý cả 2 mode
+function xacNhanCK(){
+  const thoiGianCK = document.getElementById('ckThoiGian').value;
+  if(!thoiGianCK){ toast('warn','⚠️ Chọn thời gian chuyển khoản'); return; }
+
+  const list = getDuAnAll();
+
+  if(_ckNVTarget?.mode === 'all'){
+    // TT nhiều khoản cùng lúc
+    _ckNVTarget.targets.forEach(({daId,chiId}) => {
+      const da = list.find(d=>d.id===daId);
+      if(!da) return;
+      const c = (da.chi||[]).find(x=>x.id===chiId);
+      if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
+    });
+    setDuAnAll(list);
+    toast('ok','✅ Đã thanh toán ' + _ckNVTarget.targets.length + ' khoản cho ' + _ckNVTarget.nvName);
+  } else if(_ckNVTarget?.mode === 'single'){
+    const da = list.find(d=>d.id===_ckNVTarget.daId);
+    if(da){
+      const c = (da.chi||[]).find(x=>x.id===_ckNVTarget.chiId);
+      if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
+    }
+    setDuAnAll(list);
+    toast('ok','✅ Đã xác nhận chuyển khoản!');
+  } else if(_ckTarget){
+    // Fallback: gọi từ trong modalDA
+    const da = list.find(d=>d.id===_ckTarget.daId);
+    if(da){
+      const c = (da.chi||[]).find(x=>x.id===_ckTarget.chiId);
+      if(c){ c.daTT=true; c.thoiGianCK=thoiGianCK; }
+    }
+    setDuAnAll(list);
+    toast('ok','✅ Đã xác nhận chuyển khoản!');
+  }
+
+  closeModal('modalCK');
+  _ckNVTarget = null;
+  // Refresh cả 2 nơi
+  renderDuAnDetail();
+  renderDuAnList();
+  renderNhanVienPage();
 }
 
 </script>
