@@ -1854,10 +1854,7 @@ function getDuAnAll(){
 function setDuAnAll(list){
   localStorage.setItem('bmt_duan', JSON.stringify(list));
 }
-function saveDuAn(list){
-  setDuAnAll(list);
-  DB.push('duan').catch(()=>{});
-}
+// saveDuAn defined below in DB sync layer
 function genDAId(){
   return 'DA' + Math.random().toString(36).substring(2,6).toUpperCase();
 }
@@ -2529,160 +2526,145 @@ function openQRModal(nvName, amount){
   document.getElementById('modalQR').classList.add('show');
 }
 
-// ══════════════════════════════════════════════════════
-// DB SYNC - ĐỒNG BỘ TẤT CẢ DỮ LIỆU LÊN SUPABASE
-// ══════════════════════════════════════════════════════
-// Cấu trúc:
-//   bảng hoadon  → từng hóa đơn (đã có)
-//   bảng settings → key-value cho: duan, banggia, donvi, markup
-//
-// Chiến lược: localStorage là nguồn chính (offline-first),
-// Supabase là cloud backup. Khi load: pull cloud về merge.
-// Khi thay đổi: push lên cloud ngay (async, không block UI).
 
+
+// ══════════════════════════════════════════════════════
+// DB — CLOUD ONLY (Supabase là nguồn duy nhất)
+// ══════════════════════════════════════════════════════
 const DB = {
-  // ── Khởi động: pull toàn bộ từ cloud về ────────────────
+
+  // ── Khởi động: pull tất cả từ cloud, hiển thị loading ──
   async init() {
+    setLoading('☁️ Đang tải dữ liệu từ cloud...');
     try {
-      await this._pullAll();
-      console.log('✅ Cloud sync OK');
-      toast('ok', '☁️ Đã đồng bộ dữ liệu từ cloud');
+      await this.pullAll();
+      setLoading(null);
+      toast('ok', '☁️ Đã tải dữ liệu từ cloud');
     } catch(e) {
-      console.warn('⚠️ Cloud offline, dùng local:', e.message);
-      toast('info', '📦 Offline - dùng dữ liệu local');
-    }
-    // Tạo bảng nếu chưa có (chạy ngầm)
-    this._ensureTables().catch(()=>{});
-  },
-
-  // Gọi từ máy chủ để push toàn bộ dữ liệu local lên cloud 1 lần
-  async pushAll() {
-    try {
-      await Promise.all([
-        this.push('duan'),
-        this.push('banggia'),
-        this.push('donvi'),
-        this.push('markup'),
-      ]);
-      toast('ok', '☁️ Đã đẩy toàn bộ dữ liệu lên cloud!');
-    } catch(e) {
-      toast('warn', '⚠️ Push thất bại: ' + e.message);
+      setLoading(null);
+      toast('warn', '⚠️ Không kết nối được cloud: ' + e.message);
+      console.error('DB.init failed:', e);
     }
   },
 
-  // ── Pull tất cả settings từ cloud về local ────────────
-  async _pullAll() {
-    // ── Settings (duan, banggia, donvi, markup) ──────────
-    const rows = await sbFetch('settings?select=id,data,updated_at');
-    rows.forEach(row => {
-      // Cloud là nguồn duy nhất — ghi đè local hoàn toàn
-      localStorage.setItem(row.id, JSON.stringify(row.data));
-      localStorage.setItem(row.id + '_ts', row.updated_at);
-    });
+  // ── Pull toàn bộ dữ liệu từ cloud về app ──────────────
+  async pullAll() {
+    // 1. Pull settings (banggia, duan, donvi, markup) song song với hoadon
+    const [settingsRows, hdRows] = await Promise.all([
+      sbFetch('settings?select=id,data'),
+      sbFetch('hoadon?order=updated_at.desc&limit=500')
+    ]);
 
-    // Cloud là nguồn duy nhất — có thì ghi đè, không có thì xóa local
-    const bgRow = rows.find(r => r.id === 'banggia');
-    if (bgRow && bgRow.data) {
-      localStorage.setItem('bmt_bg', JSON.stringify(bgRow.data.extra || {}));
-      localStorage.setItem('bmt_bg_deleted', JSON.stringify(bgRow.data.deleted || []));
-    } else {
-      // Cloud không có banggia → xóa local (máy này đã xóa hết)
-      localStorage.removeItem('bmt_bg');
-      localStorage.removeItem('bmt_bg_deleted');
-    }
+    // Áp dụng settings
+    const get = (key) => {
+      const row = settingsRows.find(r => r.id === key);
+      return row ? row.data : null;
+    };
 
-    const daRow = rows.find(r => r.id === 'duan');
-    if (daRow && daRow.data) {
-      localStorage.setItem('bmt_duan', JSON.stringify(daRow.data));
-    } else {
-      localStorage.removeItem('bmt_duan');
-    }
+    // Bảng giá: ghi đè hoàn toàn
+    const bgData = get('banggia');
+    localStorage.setItem('bmt_bg', JSON.stringify(bgData?.extra || {}));
+    localStorage.setItem('bmt_bg_deleted', JSON.stringify(bgData?.deleted || []));
+    BG = loadBG();
 
-    const dvRow = rows.find(r => r.id === 'donvi');
-    if (dvRow && dvRow.data) {
-      localStorage.setItem('bmt_dv', JSON.stringify(dvRow.data));
-    } else {
-      localStorage.removeItem('bmt_dv');
-    }
+    // Dự án
+    const daData = get('duan');
+    localStorage.setItem('bmt_duan', JSON.stringify(daData || []));
 
-    const mkRow = rows.find(r => r.id === 'markup');
-    if (mkRow && mkRow.data) {
-      localStorage.setItem('bmt_markup', JSON.stringify(mkRow.data));
-    } else {
-      localStorage.removeItem('bmt_markup');
-    }
+    // Đơn vị
+    const dvData = get('donvi');
+    if (dvData) localStorage.setItem('bmt_dv', JSON.stringify(dvData));
 
-    // ── Hóa đơn: cloud là nguồn duy nhất ─────────────────
-    const hdRows = await sbFetch('hoadon?order=updated_at.desc&limit=500');
+    // Markup %
+    const mkData = get('markup');
+    if (mkData) localStorage.setItem('bmt_markup', JSON.stringify(mkData));
+
+    // 2. Hóa đơn: ghi đè hoàn toàn
     const cloudHD = hdRows.map(r => ({
       id: r.id, donVi: r.don_vi, duAn: r.du_an,
       ngay: r.ngay_xuat, items: r.items,
       loaiHD: r.loai_hd, ts: r.updated_at
     }));
-    // Ghi đè local hoàn toàn bằng cloud
     setLocalAll(cloudHD);
 
-    // ── Reload UI ─────────────────────────────────────────
-    BG = loadBG();
+    // 3. Reload UI
     loadMarkup();
     renderItems();
-    if (document.getElementById('panel3')?.classList.contains('active')) renderDuAnList();
-    if (document.getElementById('panel4')?.classList.contains('active')) renderNhanVienPage();
-    if (document.getElementById('panel2')?.classList.contains('active')) renderBangGia();
+    updateHeader();
+    setupAC();
+    setupDVAC();
   },
 
-  // ── Push 1 key lên cloud ──────────────────────────────
+  // ── Push 1 key settings lên cloud ─────────────────────
   async push(key) {
     let data;
     switch(key) {
-      case 'duan':    data = getDuAnAll(); break;
-      case 'banggia': data = { extra: JSON.parse(localStorage.getItem('bmt_bg')||'{}'), deleted: JSON.parse(localStorage.getItem('bmt_bg_deleted')||'[]') }; break;
-      case 'donvi':   data = JSON.parse(localStorage.getItem('bmt_dv')||'[]'); break;
-      case 'markup':  data = JSON.parse(localStorage.getItem('bmt_markup')||'{}'); break;
+      case 'banggia':
+        data = {
+          extra:   JSON.parse(localStorage.getItem('bmt_bg') || '{}'),
+          deleted: JSON.parse(localStorage.getItem('bmt_bg_deleted') || '[]')
+        };
+        break;
+      case 'duan':   data = getDuAnAll(); break;
+      case 'donvi':  data = JSON.parse(localStorage.getItem('bmt_dv') || '[]'); break;
+      case 'markup': data = JSON.parse(localStorage.getItem('bmt_markup') || '{}'); break;
       default: return;
     }
-    const ts = new Date().toISOString();
-    localStorage.setItem(key + '_ts', ts);
-    // Upsert vào bảng settings
-    await sbFetch('settings?id=eq.' + key, { method:'DELETE', prefer:'return=minimal' });
+    // Upsert
+    await sbFetch('settings?id=eq.' + key, { method: 'DELETE', prefer: 'return=minimal' });
     await sbFetch('settings', {
       method: 'POST',
-      body: JSON.stringify({ id: key, data, updated_at: ts }),
+      body: JSON.stringify({ id: key, data, updated_at: new Date().toISOString() }),
       prefer: 'return=minimal'
     });
   },
 
-  // ── Tạo bảng settings nếu chưa có ────────────────────
-  async _ensureTables() {
+  // ── Push tất cả settings lên cloud 1 lần ──────────────
+  async pushAll() {
+    setLoading('☁️ Đang đẩy dữ liệu lên cloud...');
     try {
-      await sbFetch('settings?limit=1', { prefer:'count=none' });
+      await Promise.all([
+        this.push('banggia'),
+        this.push('duan'),
+        this.push('donvi'),
+        this.push('markup'),
+      ]);
+      setLoading(null);
+      toast('ok', '☁️ Đã đẩy toàn bộ dữ liệu lên cloud!');
     } catch(e) {
-      console.warn('settings table missing - please create via SQL Editor');
+      setLoading(null);
+      toast('warn', '⚠️ Push thất bại: ' + e.message);
     }
-  }
+  },
 };
 
-// Patch saveBG để auto-sync
+// ── Auto-sync sau mỗi thay đổi ────────────────────────────
+// Patch saveBG
 const _origSaveBG = saveBG;
 function saveBG(bg) {
   _origSaveBG(bg);
-  DB.push('banggia').catch(()=>{});
+  DB.push('banggia').catch(e => toast('warn','☁️ Lỗi sync bảng giá: ' + e.message));
 }
 
-// Patch saveDV để auto-sync
+// Patch saveDV
 const _origSaveDV = saveDV;
 function saveDV(n) {
   _origSaveDV(n);
   DB.push('donvi').catch(()=>{});
 }
 
-// Patch saveMarkup để auto-sync
+// Patch saveMarkup
 const _origSaveMarkup = saveMarkup;
 function saveMarkup() {
   _origSaveMarkup();
   DB.push('markup').catch(()=>{});
 }
 
+// saveDuAn đã gọi DB.push('duan') bên trong
+function saveDuAn(list) {
+  setDuAnAll(list);
+  DB.push('duan').catch(e => toast('warn','☁️ Lỗi sync dự án: ' + e.message));
+}
 
 </script>
 </body>
