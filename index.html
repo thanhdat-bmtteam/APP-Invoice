@@ -1949,14 +1949,14 @@ async function renderDuAnList(){
     const t = _calcDuAnTotals(da, allInv);
     const lnColor = t.loiNhuan >= 0 ? 'var(--green)' : 'var(--danger)';
     const baoGiaRow = da.baoGia ? `<span style="color:var(--warn)">Báo giá: ${fmt(da.baoGia)}</span>` : '';
-    return `<div class="da-card" style="position:relative" onclick="openDuAn('${da.id}')">
+    return `<div class="da-card" style="position:relative;padding-right:72px" onclick="openDuAn('${da.id}')">
       <div style="position:absolute;top:8px;right:8px;display:flex;flex-direction:row;gap:6px;align-items:center">
         <button onclick="event.stopPropagation();openDuAn('${da.id}')" title="Sửa"
           style="background:none;border:none;cursor:pointer;font-size:1rem;padding:4px 6px;border-radius:6px;color:var(--accent)">✏️</button>
         <button onclick="event.stopPropagation();xoaDuAnTuList('${da.id}')" title="Xóa"
           style="background:none;border:none;cursor:pointer;font-size:1rem;padding:4px 6px;border-radius:6px;color:var(--txt3)">🗑</button>
       </div>
-      <div class="da-card-name">${escH(da.ten)}</div>
+      <div class="da-card-name" style="padding-right:4px;word-break:break-word">${escH(da.ten)}</div>
       <div class="da-card-stats">
         ${baoGiaRow}
         <span class="da-stat-thu">Thu: ${fmt(t.tongThu)}</span>
