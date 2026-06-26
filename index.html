@@ -566,6 +566,7 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
     <div class="card-title">📁 Quản lý Dự án</div>
     <div style="display:flex;gap:8px">
       <input id="daTenMoi" type="text" placeholder="Tên dự án mới..." style="flex:1">
+      <input id="daBaoGiaMoi" type="number" min="0" placeholder="Báo giá (vnđ)" style="flex:0 0 150px">
       <button class="btn btn-violet btn-sm" onclick="taoDuAnMoi()">➕ Tạo</button>
     </div>
   </div>
@@ -714,19 +715,34 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
 <div class="modal-overlay" id="modalDA">
   <div class="modal" style="max-height:85vh">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="daTitle">📁 Dự án</div>
+
+    <!-- Thông tin dự án: tên + báo giá, có thể sửa -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <div style="flex:1">
+        <div style="font-size:.7rem;color:var(--txt3);margin-bottom:3px">TÊN DỰ ÁN</div>
+        <input id="daEditTen" type="text" style="width:100%;font-weight:800;font-size:.95rem;background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--txt)" onchange="saveDAInfo()">
+      </div>
+      <div style="flex:0 0 140px">
+        <div style="font-size:.7rem;color:var(--txt3);margin-bottom:3px">BÁO GIÁ (vnđ)</div>
+        <input id="daEditBaoGia" type="number" min="0" style="width:100%;font-weight:700;font-size:.9rem;background:var(--s2);border:1.5px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--warn);text-align:right" onchange="saveDAInfo()">
+      </div>
+    </div>
 
     <!-- Tổng kết -->
-    <div class="da-summary">
-      <div class="da-sum-item">
+    <div class="da-summary" style="flex-wrap:wrap">
+      <div class="da-sum-item" style="min-width:80px">
+        <span class="da-sum-label">Báo giá</span>
+        <span class="da-sum-val" id="daBaoGiaVal" style="color:var(--warn)">0 vnđ</span>
+      </div>
+      <div class="da-sum-item" style="min-width:80px">
         <span class="da-sum-label">Tổng thu</span>
         <span class="da-sum-val" id="daTongThu" style="color:var(--green)">0 vnđ</span>
       </div>
-      <div class="da-sum-item">
+      <div class="da-sum-item" style="min-width:80px">
         <span class="da-sum-label">Tổng chi</span>
         <span class="da-sum-val" id="daTongChi" style="color:var(--danger)">0 vnđ</span>
       </div>
-      <div class="da-sum-item">
+      <div class="da-sum-item" style="min-width:80px">
         <span class="da-sum-label">Lợi nhuận</span>
         <span class="da-sum-val" id="daLoiNhuan">0 vnđ</span>
       </div>
@@ -1872,10 +1888,12 @@ function genDAId(){
 function taoDuAnMoi(){
   const ten = document.getElementById('daTenMoi').value.trim();
   if(!ten){ toast('warn','⚠️ Nhập tên dự án'); return; }
+  const baoGia = parseFloat(document.getElementById('daBaoGiaMoi').value) || 0;
   const list = getDuAnAll();
-  list.unshift({ id: genDAId(), ten, hoaDonIds: [], thuChi: [], ts: new Date().toISOString() });
+  list.unshift({ id: genDAId(), ten, baoGia, hoaDonIds: [], thu:[], chi:[], ts: new Date().toISOString() });
   saveDuAn(list);
   document.getElementById('daTenMoi').value='';
+  document.getElementById('daBaoGiaMoi').value='';
   renderDuAnList();
   toast('ok','📁 Đã tạo dự án: ' + ten);
 }
@@ -1930,15 +1948,20 @@ async function renderDuAnList(){
   el.innerHTML = list.map(da => {
     const t = _calcDuAnTotals(da, allInv);
     const lnColor = t.loiNhuan >= 0 ? 'var(--green)' : 'var(--danger)';
+    const baoGiaRow = da.baoGia ? `<span style="color:var(--warn)">Báo giá: ${fmt(da.baoGia)}</span>` : '';
     return `<div class="da-card" style="position:relative" onclick="openDuAn('${da.id}')">
-      <button class="da-card-del" onclick="event.stopPropagation();xoaDuAnTuList('${da.id}')">🗑</button>
+      <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px">
+        <button class="da-card-del" onclick="event.stopPropagation();openDuAn('${da.id}')" title="Sửa" style="color:var(--accent)">✏️</button>
+        <button class="da-card-del" onclick="event.stopPropagation();xoaDuAnTuList('${da.id}')" title="Xóa">🗑</button>
+      </div>
       <div class="da-card-name">${escH(da.ten)}</div>
       <div class="da-card-stats">
+        ${baoGiaRow}
         <span class="da-stat-thu">Thu: ${fmt(t.tongThu)}</span>
         <span class="da-stat-chi">Chi: ${fmt(t.tongChi)}</span>
         <span class="da-stat-ln" style="color:${lnColor}">LN: ${fmt(t.loiNhuan)}</span>
       </div>
-      <div class="da-card-meta">${(da.hoaDonIds||[]).length} hóa đơn · ${(da.thuChi||[]).length} khoản thu/chi</div>
+      <div class="da-card-meta">${(da.hoaDonIds||[]).length} hóa đơn · ${(da.chi||[]).length} khoản chi</div>
     </div>`;
   }).join('');
 }
@@ -1955,8 +1978,9 @@ async function openDuAn(id){
   _daLoaiHD = 'goc';
   const da = getDuAnAll().find(d=>d.id===id);
   if(!da){ toast('error','Không tìm thấy dự án'); return; }
-  document.getElementById('daTitle').textContent = '📁 ' + da.ten;
   document.getElementById('modalDA').classList.add('show');
+  document.getElementById('daEditTen').value = da.ten;
+  document.getElementById('daEditBaoGia').value = da.baoGia || '';
   document.getElementById('daHDList').innerHTML = '<div style="text-align:center;padding:10px;color:var(--txt2)">⏳ Đang tải...</div>';
   document.getElementById('daHintCount').textContent = (da.hoaDonIds||[]).length + ' hóa đơn';
   document.getElementById('daPctLK').value = da.markupLK ?? '';
@@ -1973,6 +1997,7 @@ async function renderDuAnDetail(){
   const allInv = await _getAllInvoicesForDA();
   const t = _calcDuAnTotals(da, allInv);
 
+  document.getElementById('daBaoGiaVal').textContent = da.baoGia ? fmt(da.baoGia) : '—';
   document.getElementById('daTongThu').textContent = fmt(t.tongThu);
   document.getElementById('daTongChi').textContent = fmt(t.tongChi);
   const lnEl = document.getElementById('daLoiNhuan');
@@ -2669,6 +2694,20 @@ const DB = {
 function saveDuAn(list) {
   setDuAnAll(list);
   DB.push('duan').catch(e => toast('warn','☁️ Lỗi sync dự án: ' + e.message));
+}
+
+function saveDAInfo(){
+  const da = getDuAnAll().find(d=>d.id===_daCurrent);
+  if(!da) return;
+  const ten = document.getElementById('daEditTen').value.trim();
+  const baoGia = parseFloat(document.getElementById('daEditBaoGia').value) || 0;
+  if(!ten){ toast('warn','⚠️ Tên dự án không được trống'); return; }
+  da.ten = ten;
+  da.baoGia = baoGia;
+  saveDuAn(getDuAnAll().map(d=>d.id===da.id?da:d));
+  document.getElementById('daBaoGiaVal').textContent = baoGia ? fmt(baoGia) : '—';
+  renderDuAnList();
+  toast('ok','✅ Đã cập nhật thông tin dự án');
 }
 
 </script>
