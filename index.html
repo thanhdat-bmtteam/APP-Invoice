@@ -373,6 +373,11 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
 .nv-chi-row:last-child{border-bottom:none}
 .nv-chi-da{project:all;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;display:flex;justify-content:space-between}
 .nv-da-label{font-size:.68rem;color:var(--accent);font-weight:700;padding:1px 6px;background:rgba(0,180,216,.12);border-radius:4px;margin-right:6px}
+
+/* ── TỔNG QUAN DỰ ÁN ── */
+.tq-card{background:var(--s1);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px}
+.tq-label{font-size:.7rem;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.tq-val{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:.92rem;word-break:break-all}
 </style>
 </head>
 <body>
@@ -568,6 +573,26 @@ body{font-family:"Be Vietnam Pro",sans-serif;background:var(--bg);color:var(--tx
       <input id="daTenMoi" type="text" placeholder="Tên dự án mới..." style="flex:1">
       <input id="daBaoGiaMoi" type="number" min="0" placeholder="Báo giá (vnđ)" style="flex:0 0 150px">
       <button class="btn btn-violet btn-sm" onclick="taoDuAnMoi()">➕ Tạo</button>
+    </div>
+  </div>
+
+  <!-- Tổng quan tất cả dự án -->
+  <div id="daTongQuan" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+    <div class="tq-card" style="border-color:rgba(255,200,0,.3)">
+      <div class="tq-label">📋 Tổng báo giá</div>
+      <div class="tq-val" id="tqBaoGia" style="color:var(--warn)">0 vnđ</div>
+    </div>
+    <div class="tq-card" style="border-color:rgba(6,214,160,.3)">
+      <div class="tq-label">💰 Tổng thu</div>
+      <div class="tq-val" id="tqThu" style="color:var(--green)">0 vnđ</div>
+    </div>
+    <div class="tq-card" style="border-color:rgba(230,57,70,.3)">
+      <div class="tq-label">💸 Tổng chi</div>
+      <div class="tq-val" id="tqChi" style="color:var(--danger)">0 vnđ</div>
+    </div>
+    <div class="tq-card" id="tqLNCard">
+      <div class="tq-label">📈 Tổng lợi nhuận</div>
+      <div class="tq-val" id="tqLN">0 vnđ</div>
     </div>
   </div>
 
@@ -1945,6 +1970,25 @@ async function renderDuAnList(){
   document.getElementById('daEmpty').style.display = 'none';
   el.innerHTML = '<div style="text-align:center;padding:14px;color:var(--txt2)">⏳ Đang tính toán...</div>';
   const allInv = await _getAllInvoicesForDA();
+  // Tính tổng quan toàn bộ
+  let tqBG=0, tqThu=0, tqChi=0;
+  list.forEach(da => {
+    const t = _calcDuAnTotals(da, allInv);
+    tqBG  += (da.baoGia||0);
+    tqThu += t.tongThu;
+    tqChi += t.tongChi;
+  });
+  const tqLN = tqThu - tqChi;
+  const tqEl = id => document.getElementById(id);
+  if(tqEl('tqBaoGia')) tqEl('tqBaoGia').textContent = fmt(tqBG);
+  if(tqEl('tqThu'))    tqEl('tqThu').textContent    = fmt(tqThu);
+  if(tqEl('tqChi'))    tqEl('tqChi').textContent    = fmt(tqChi);
+  if(tqEl('tqLN')){
+    tqEl('tqLN').textContent  = fmt(tqLN);
+    tqEl('tqLN').style.color  = tqLN >= 0 ? 'var(--green)' : 'var(--danger)';
+    tqEl('tqLNCard').style.borderColor = tqLN >= 0 ? 'rgba(6,214,160,.3)' : 'rgba(230,57,70,.3)';
+  }
+
   el.innerHTML = list.map(da => {
     const t = _calcDuAnTotals(da, allInv);
     const lnColor = t.loiNhuan >= 0 ? 'var(--green)' : 'var(--danger)';
